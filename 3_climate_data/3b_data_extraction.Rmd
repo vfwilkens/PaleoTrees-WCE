@@ -1,0 +1,49 @@
+---
+title: "Extract climate data and sampling bias weights for all occurrences"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(terra)
+library(here)
+library(stringr)
+```
+
+Load in occurrence data, climate data, sampling weights, and native tree genus/species checklists.
+```{r, eval = FALSE}
+all_occurrences <- read.csv(here("./data/data_2/occurrences.csv"))[,-(1:2)]
+
+bioclim_current_global <- rast(here("./data/data_3/bioclim_current_global_0_25deg.tif"))
+weights <- rast(here("./data/data_2/weights_0_25deg.tif"))
+
+native_genera <- read.csv(here("./data/data_1/native_genera.csv"))[,-1]
+native_species <- read.csv(here("./data/data_1/native_species.csv"))[,-1]
+```
+
+Extract climate data and sampling weights for all occurrence points.
+```{r, eval = FALSE}
+all_occurrences_points <- all_occurrences[,c("decimalLongitude","decimalLatitude")]
+all_occurrences_points <- vect(all_occurrences_points, geom = c("decimalLongitude","decimalLatitude"))
+
+extracted_climate_data <- extract(bioclim_current_global, all_occurrences_points)[,-1]
+extracted_weights <- extract(weights, all_occurrences_points)[,-1]
+
+all_occurrences_extracted <- cbind(all_occurrences, extracted_climate_data, extracted_weights)
+
+colnames(all_occurrences_extracted) <- c("species","decimalLongitude","decimalLatitude","genus","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19","weights")
+```
+
+
+```{r, eval = FALSE}
+all_occurrences_extracted$genus2 <- all_occurrences_extracted$genus
+
+all_occurrences_extracted$genus2 <- ifelse(all_occurrences_extracted$status == "native-native",
+                                           str_c(all_occurrences_extracted$genus2, "_na"),
+                                           all_occurrences_extracted$genus2)
+
+#write.csv(all_occurrences_extracted, here("./data/data_4/occurrences_final.csv"))
+```
+

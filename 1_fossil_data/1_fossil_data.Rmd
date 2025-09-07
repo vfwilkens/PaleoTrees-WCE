@@ -1,0 +1,294 @@
+---
+title: "Obtaining fossil data of tree genera"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(dplyr)
+library(readxl)
+library(writexl)
+library(rWCVP) 
+library(rWCVPdata)
+library(stringr)
+library(U.Taxonstand) 
+library(here) 
+```
+
+Load in all data.
+```{r, eval = FALSE}
+
+#Data downloaded from PBDB
+#USE DATA DOWNLOAD LINK TO ACQUIRE DATA: http://paleobiodb.org/data1.2/occs/list.csv?datainfo&rowcount&cc=EUR&pgm=gplates,scotese,seton&show=full,genus,env (accessed 26/06/2025)
+#Note, this download may take some time to initialize.
+pbdb_data <- read.csv(here("./data/data_1/pbdb_data_26_06_2025.csv"), skip = 18)
+
+#Data that was sourced from literature (Note, this datasheet already contains many occurrences that were taken manually from PBDB). This file provides a basis for the dataset that can always be updated with newer versions of PBDB. 
+literature_data <- read_xlsx(here("./data/data_1/literature_records_28_01_25.xlsx"))
+literature_data <- literature_data[-(1:2),1:11]
+
+#The stratigraphy used in this study
+stratigraphy <- read_xlsx(here("./data/data_1/stratigraphy.xlsx"))
+
+#Define study area countries for Western and Central Europe
+WCE <- c("LI","GB","FR", "DE", "UK", "LU", "BE", "NL", "CH", "AT", "CZ", "PL", "IE","IM")
+WCE_botanical_countries <- c("FRA", "GER", "GBR", "LUX", "BEL", "NTH", "CZE", "AUT", "POL", "SWI")
+
+
+#Generate an initial WCVP checklist used throughout
+checklist <- wcvp_checklist(taxon_rank = "genus", synonyms = FALSE, native = TRUE, 
+                   location_doubtful = FALSE, hybrids = FALSE, infraspecies = FALSE)
+checklist$species_name <- paste(checklist$genus, checklist$species, sep = " ")
+
+```
+
+Load in BGCI GlobalTreeSearch checklist of tree species and standardize against WCVP. To perform standardization, use the tree species list provided by BGCI and standardize using U.Taxonstand with the provided Plants_WCVP.rdata file (available from the package GitHub). To avoid running this again, just load in the provided "trees_checked.csv" file. 
+```{r, eval = FALSE}
+###If standardization is complete:
+trees <- read.csv(here("./data/data_1/trees_checked.csv"))
+trees <- trees[,-c(1,2)]
+
+###If standardization has not yet been done:
+# trees <- read.csv(here("./data/data_1/global_tree_search_trees_1_8.csv"))
+# 
+#Load in taxonomic backbone for WCVP, which is main basis for GBIF (occurrence data) and BGCI (tree species list). See documentation for U.Taxonstand to download this data.
+#load(here("./data/data_1/Plants_WCVP.rdata"))
+#
+# trees <- trees[,c(1,2)]
+# trees <- as.data.frame(trees)
+# colnames(trees) <- c("Name", "Author")
+# trees$Rank <- 2
+# 
+# trees_checked <- nameMatch(spList=trees, spSource = database, author = TRUE, max.distance = 1, matchFirst = FALSE)
+# 
+# trees_checked_filtered <- filter(trees_checked, trees_checked$Name_set == 1 & trees_checked$Score == 1)
+# 
+# trees <- select(trees_checked_filtered, Accepted_SPNAME)
+# 
+# colnames(trees) <- c("species")
+# trees$genus <- word(trees$species, 1)
+# 
+# write.csv(trees, here("./data/data_1/trees_checked.csv"))
+
+```
+
+Add taxonomic information to the standardized list of tree species.
+```{r, eval = FALSE}
+
+taxonomy <- rWCVP::taxonomic_mapping
+
+family <- checklist %>%
+      filter(taxon_status == "Accepted") %>% 
+      filter(genus %in% trees$genus) %>% 
+      select(genus, family) %>% 
+      distinct()
+      
+trees <- merge(trees, family, by = "genus")
+trees <- merge(trees, taxonomy, by = "family")
+trees <- trees[,c(3,2,1,5,4)]
+
+```
+
+Calculate proportion of accepted species within each genera that are tree species.
+```{r, eval = FALSE}
+
+checklist_filtered <- checklist %>%
+      filter(taxon_status == "Accepted") %>% 
+      filter(genus %in% trees$genus)
+
+#Count accepted species in WCVP
+accepted_species <- checklist_filtered %>% 
+    group_by(genus) %>%
+    summarise(n_accepted_species = n_distinct(species_name))
+    
+#Count tree species listed in BGCI (standardized to WCVP)
+tree_species <- trees %>%
+  group_by(genus) %>%
+  summarise(n_tree_species = n_distinct(species))
+
+counts <- merge(accepted_species, tree_species, by = "genus")
+
+counts$proportion_tree <- counts$n_tree_species / counts$n_accepted_species
+```
+
+Decide on threshhold to define a genus as being a tree genus (we use 0.3 in all further analyses).
+```{r, eval = FALSE}
+#Load in final list of tree genera with taxonomic information (see below for calculations):
+trees_final <- read.csv(here("./data/data_1/trees_final.csv"))
+
+
+#Minimum proportion of tree forming species. We use 0.3 for all results shown in the paper. See Supplementary Information Figs. 1 - 6 for sensitivity analyses around this threshold.
+# threshold <- 0.3
+# 
+# tree_genera <- filter(counts, counts$proportion_tree >= threshold)
+# trees_final <- filter(trees, trees$genus %in% tree_genera$genus)
+# 
+
+#write.csv(trees_final, here("./data/data_1/trees_final.csv"))
+```
+
+Filter PBDB dataset to only include Cenozoic records for trees within Western and Central Europe.
+```{r, eval = FALSE}
+
+pbdb_data_filtered <- pbdb_data %>% 
+  filter(min_ma <= 65.999) %>% 
+  filter(max_ma >= 2.58) %>% 
+  filter(genus %in% trees_final$genus) %>% 
+  filter(phylum %in% c("Gymnospermophyta","Cycadeoideophyta","Coniferophyta","","NO_PHYLUM_SPECIFIED","Pinophyta","Cycadophyta","Tracheophyta","Angiospermae","Ginkgophyta","Spermatophyta","Magnoliophyta")) %>% 
+  filter(cc %in% WCE)
+
+pbdb_genera <- unique(pbdb_data_filtered$genus)
+pbdb_genera <- na.omit(pbdb_genera)
+
+pbdb_genera <- as.data.frame(pbdb_genera)
+colnames(pbdb_genera) <- "genus"
+```
+
+Next, loop through all tree genera obtained from the filtered PBDB dataset and fill in time-bins from stratigraphy with records.
+```{r, eval = FALSE}
+
+stratigraphy_epochs <- stratigraphy[1:5,]
+
+dataset <- pbdb_genera
+dataset <- as.data.frame(dataset)
+colnames(dataset) <- "genus"
+
+for (epoch in stratigraphy_epochs$time_bin) {
+  dataset[[epoch]] <- NA
+}
+
+for (n in 1:nrow(dataset)) {
+  genus <- dataset$genus[n]
+  genus_intervals <- filter(pbdb_data_filtered, pbdb_data_filtered$genus == !!genus)
+  print(genus)
+  for (k in 1:nrow(genus_intervals)) {
+    max <- genus_intervals[k,"max_ma"]
+    min <- genus_intervals[k,"min_ma"]
+    for (j in 2:6) {
+      max_epoch <- stratigraphy_epochs[j-1,2]
+      max_epoch <- as.numeric(max_epoch)
+      min_epoch <- stratigraphy_epochs[j-1,3]
+      min_epoch <- as.numeric(min_epoch)
+      dataset[n,j] <- ifelse((max >= max_epoch & min <= min_epoch), 1,
+                                        ifelse((max >= max_epoch & min <= max_epoch), 1,
+                                               ifelse((max >= min_epoch & min <= min_epoch), 1,
+                                                      ifelse((max <= max_epoch & min >= min_epoch), 1, dataset[n,j]))))
+                                 
+    }}}
+
+dataset[is.na(dataset)] <- 0
+pbdb_dataset <- dataset
+colSums(pbdb_dataset[,-1])
+
+```
+
+Combine with literature records.
+```{r, eval = FALSE}
+
+literature_data[,-1] <- lapply(literature_data[,-1], as.numeric)
+literature_genera <- unique(literature_data$Genus)
+
+dataset_combined <- pbdb_dataset
+literature_genera_with_no_pbdb_records <- setdiff(literature_genera, dataset_combined$genus)
+literature_genera_with_no_pbdb_records <- as.data.frame(literature_genera_with_no_pbdb_records)
+colnames(literature_genera_with_no_pbdb_records) <- "genus"
+
+for (epoch in stratigraphy_epochs$time_bin) {
+  literature_genera_with_no_pbdb_records[[epoch]] <- NA
+}
+
+
+literature_genera_with_no_pbdb_records <- filter(literature_genera_with_no_pbdb_records, literature_genera_with_no_pbdb_records$genus %in% trees_final$genus)
+dataset_combined <- rbind(dataset_combined, literature_genera_with_no_pbdb_records)
+
+
+for (n in 1:nrow(dataset_combined)) {
+  genus_name <- dataset_combined[n,1]
+  print(genus_name)
+  
+  literature_data_filtered <- dplyr::filter(literature_data, literature_data$Genus == genus_name)
+  literature_data_filtered <- literature_data_filtered[,1:6]
+  
+  if(nrow(literature_data_filtered) == 0){
+    next
+  }
+  
+  for (k in 2:6) {
+    
+    dataset_combined[n,k] <- ifelse(literature_data_filtered[[1,k]] == 1, 1, 0)
+  }}
+
+dataset_combined[is.na(dataset_combined)] <- 0
+colSums(dataset_combined[,-1])
+
+```
+
+Combine with occurrences from Pleistocene interglacials and temperate stages.
+```{r, eval = FALSE}
+
+for (interglacial in colnames(literature_data)[7:11]) {
+  dataset_combined[[interglacial]] <- NA
+}
+
+for (n in 1:nrow(dataset_combined)) {
+  genus_name <- dataset_combined[n,1]
+  print(genus_name)
+  
+  literature_data_filtered <- dplyr::filter(literature_data, literature_data$Genus == genus_name)
+  
+    if(nrow(literature_data_filtered) == 0){
+    next
+  }
+  
+  for (k in 7:11) {
+
+    dataset_combined[n,k] <- ifelse(literature_data_filtered[[1,k]] == 1, 1, 0)
+  }}
+
+
+dataset_combined[is.na(dataset_combined)] <- 0
+colSums(dataset_combined[,-1])
+```
+
+Obtain checklist of native tree genera in Holocene Western and Central Europe to complete the dataset.
+```{r, eval = FALSE}
+
+dataset_final <- filter(dataset_combined, dataset_combined$genus %in% trees_final$genus)
+
+checklist_filtered <- checklist %>% filter(area_code_l3 %in% WCE_botanical_countries) %>%
+  filter(taxon_status == "Accepted") %>%
+  filter(occurrence_type == "native") %>%
+  filter(continent == "EUROPE") %>%
+  filter(area_code_l3 != "FRA")
+
+checklist_filtered <- filter(checklist_filtered, genus %in% trees_final$genus)
+
+native_genera <- unique(checklist_filtered$species_name)
+native_genera <- unique(word(native_genera, 1))
+
+dataset_final$Holocene <- NA
+dataset_final$Holocene <- ifelse(dataset_final$genus %in% native_genera, 1, 0)
+
+colSums(dataset_final[, 2:12])
+
+checklist_filtered <- filter(
+  checklist_filtered,
+  species_name %in% trees_final$species &
+    genus %in% dataset_final$genus
+)
+  
+native_species <- unique(checklist_filtered$species_name)
+
+```
+
+Save the dataset and native species/genera checklists.
+```{r, eval = FALSE}
+#Save the final dataset
+write_xlsx(dataset_final, here("./data/data_1/dataset_final_28_06_25.xlsx"))
+
+#Save native species and native genera checklists for later analyses.
+write.csv(native_genera, here("./data/data_1/native_genera.csv"))
+write.csv(native_species, here("./data/data_1/native_species.csv"))
+```

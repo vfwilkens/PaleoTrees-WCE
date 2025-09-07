@@ -1,0 +1,84 @@
+---
+title: "Preprocessing climate data"
+output:
+  html_document:
+    df_print: paged
+---
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(terra)
+library(here)
+```
+
+Read in current bioclimatic data.
+```{r, eval = FALSE}
+directory_path <- "./CHELSA/bioclim/current" #REPLACE WITH LOCAL PATH TO CHELSA BIOCLIMATIC VARIABLES
+
+file_paths <- list.files(directory_path, pattern = "^CHELSA_bio[1-9]|^CHELSA_bio1[0-9]", full.names = TRUE)
+file_paths <- file_paths[order(as.numeric(gsub(".*bio([0-9]+)_.*", "\\1", file_paths)))]
+
+bioclim_current <- rast(file_paths)
+
+```
+
+Read in SSP1-2.6.
+```{r, eval = FALSE}
+directory_path <- "./CHELSA/bioclim/ssp126/bio"
+
+file_paths <- list.files(directory_path, pattern = "^CHELSA_bio[1-9]|^CHELSA_bio1[0-9]", full.names = TRUE)
+file_paths <- file_paths[order(as.numeric(gsub(".*bio([0-9]+)_.*", "\\1", file_paths)))]
+
+bioclim_ssp126 <- rast(file_paths)
+```
+
+Read in SSP5-8.5.
+```{r, eval = FALSE}
+directory_path <- "./CHELSA/bioclim/ssp585/bio"
+
+file_paths <- list.files(directory_path, pattern = "^CHELSA_bio[1-9]|^CHELSA_bio1[0-9]", full.names = TRUE)
+file_paths <- file_paths[order(as.numeric(gsub(".*bio([0-9]+)_.*", "\\1", file_paths)))]
+
+bioclim_ssp585 <- rast(file_paths)
+```
+
+Create a mask for Western and Central Europe:
+```{r, eval = FALSE}
+continents <- vect(here("./data/data_3/world-administrative-boundaries/world-administrative-boundaries.shp"))
+
+WCE <- c("LI","GB","FR", "DE", "UK", "LU", "BE", "NL", "CH", "AT", "CZ", "PL", "IE","IM")
+WCE <- subset(continents, continents$iso_3166_1_ %in% WCE)
+
+#Remove Corsica from WCE
+corsica <- ext(8.3,10,41.3,43.2)
+WCE <- erase(WCE, corsica)
+
+#writeVector(WCE, here("./data/data_3/WCE.gpkg"), overwrite = T)
+```
+
+Resample climate data to 0.25 deg resolution and save. 
+```{r, eval = FALSE}
+factor <- 30.0000012
+cores = 8
+output_path <- here("./data/data_3/")
+
+bioclim_current_global <- aggregate(bioclim_current, fact = factor, cores = cores)
+bioclim_current_global <- mask(bioclim_current_global, continents)
+bioclim_current_global <- crop(bioclim_current_global, continents)
+writeRaster(bioclim_current_global, paste0(output_path, "bioclim_current_global_0_25deg.tif"), overwrite = T)
+
+bioclim_current <- aggregate(bioclim_current, fact = factor, cores = cores)
+bioclim_current <- mask(bioclim_current, WCE)
+bioclim_current <- crop(bioclim_current, WCE)
+writeRaster(bioclim_current, paste0(output_path, "bioclim_current_0_25deg.tif"), overwrite = T)
+
+bioclim_ssp126 <- aggregate(bioclim_ssp126, fact = factor, cores = cores)
+bioclim_ssp126 <- mask(bioclim_ssp126, WCE)
+bioclim_ssp126 <- crop(bioclim_ssp126, WCE)
+writeRaster(bioclim_ssp126, paste0(output_path, "bioclim_ssp126_0_25deg.tif"), overwrite = T)
+
+bioclim_ssp585 <- aggregate(bioclim_ssp585, fact = factor, cores = 8)
+bioclim_ssp585 <- mask(bioclim_ssp585, WCE)
+bioclim_ssp585 <- crop(bioclim_ssp585, WCE)
+writeRaster(bioclim_ssp585, paste0(output_path, "bioclim_ssp585_0_25deg.tif"), overwrite = T)
+
+```

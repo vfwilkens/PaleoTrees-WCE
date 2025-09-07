@@ -1,0 +1,404 @@
+---
+title: "Prepare data for niche limits and create plots for Fig. 5"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(terra)
+library(here)
+library(brms)
+library(stringr)
+library(tidyverse)
+library(ggplot2)
+library(ggridges)
+library(patchwork)
+```
+
+Load in fossil data, global tree genus checklist, and native species/genus checklists for WCE.
+```{r}
+dataset_final <- readxl::read_xlsx(here("./data/data_1/dataset_final_28_06_25.xlsx"))
+
+native_genera <- read.csv(here("./data/data_1/native_genera.csv"))[,-1]
+native_species <- read.csv(here("./data/data_1/native_species.csv"))[,-1]
+
+trees_final <- read.csv(here("./data/data_1/trees_final.csv"))
+```
+
+Load in climate data for WCE and reproject into equal-area projection EPSG:3035.
+```{r}
+bioclim_current <- rast(here("./data/data_3/bioclim_current_0_25deg.tif"))
+bioclim_ssp126 <- rast(here("./data/data_3/bioclim_ssp126_0_25deg.tif"))
+bioclim_ssp585 <- rast(here("./data/data_3/bioclim_ssp585_0_25deg.tif"))
+
+bioclim_current <- project(bioclim_current, "EPSG:3035")
+bioclim_ssp126 <- project(bioclim_ssp126, "EPSG:3035")
+bioclim_ssp585 <- project(bioclim_ssp585, "EPSG:3035")
+
+bioclim_current_df <- as.data.frame(bioclim_current, xy = TRUE)
+colnames(bioclim_current_df) <- c("x","y","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+bioclim_ssp126_df <- as.data.frame(bioclim_ssp126, xy = TRUE)
+colnames(bioclim_ssp126_df) <- c("x","y","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+bioclim_ssp585_df <- as.data.frame(bioclim_ssp585, xy = TRUE)
+colnames(bioclim_ssp585_df) <- c("x","y","bio1","bio2","bio3","bio4","bio5","bio6","bio7","bio8","bio9","bio10","bio11","bio12","bio13","bio14","bio15","bio16","bio17","bio18","bio19")
+
+bioclim_current_df$group <- "current"
+bioclim_ssp126_df$group <- "ssp126"
+bioclim_ssp585_df$group <- "ssp585"
+
+combined_data <- rbind(bioclim_current_df, bioclim_ssp126_df, bioclim_ssp585_df)
+combined_data <- na.omit(combined_data)
+
+```
+
+Prepare data for Fig. 5 by loading in all models of niche limits and extracting desired information, including the genus-level fixed intercepts, Rhat, number of divergent transitions, and number of species used to fit the models.
+```{r}
+#Input directory
+directory_path <- directory_path <- here("./data/niche_limits")
+
+file_paths <- list.files(directory_path, full.names = TRUE)
+model_list <- lapply(file_paths, readRDS)
+
+model_names <- sub(".*model_(.*)\\.RData", "\\1", file_paths)
+genus_names <- sub("_na$", "", model_names)
+
+#Define function to extract the number of divergent transitions from each model object.
+n_divergent <- function(x) {
+  stopifnot(is(x, "brmsfit"))
+  out <- lapply(x$fit@sim$samples, function(y) 
+    sum(attr(y, "sampler_params")[["divergent__"]]))
+  sum(unlist(out))
+}
+
+#Initialize dataframe
+all_data_limits <- data.frame()
+
+#Loop through all models by loading in the model object and extracting desired information.
+for(g in 1:length(genus_names)){
+genus_name <- genus_names[[g]]
+model_name <- model_names[[g]]
+model <- model_list[[g]]
+species_n <- length(unique(model$data$species))
+
+para <- as_draws_df(model)
+
+para <- select(para, b_bio5_Intercept, b_bio6_Intercept)
+para$model <- model_name
+para$genus <- genus_name
+para$n <- species_n
+
+Rhat <- rhat(model)
+Rhat <- max(Rhat)
+divtrans <- n_divergent(model)
+
+para$Rhat_max <- Rhat
+para$divtrans <- divtrans
+
+all_data_limits <- rbind(all_data_limits, para)
+
+}
+
+all_data_limits$category <- ifelse(all_data_limits$genus %in% native_species | grepl("_na$", all_data_limits$model), "HRTF",
+                                    ifelse(all_data_limits$genus %in% native_genera, "EG", "REG"))
+
+```
+
+Reorganize data and create labels for each genus:
+```{r}
+
+segments <- all_data_limits %>%
+  group_by(model, genus, category) %>%
+  summarize(median_bio6 = median(b_bio6_Intercept), median_bio5 = median(b_bio5_Intercept), n_species = mean(n), Rhat= mean(Rhat_max), .groups = "keep")
+
+segments$n_species <- ifelse(segments$n_species == 0, 1, segments$n_species)
+
+total_species <- data.frame()
+
+for(g in 1:length(genus_names)) {
+  genus_name <- genus_names[[g]]
+  model_name <- model_names[[g]]
+  
+  if (genus_name != model_name) {
+    species_list <- filter(trees_final, trees_final$genus == genus_name)
+    species_list <- filter(species_list, species_list$species %in% native_species)
+    df <- data.frame(model = model_name, n_total = nrow(species_list))
+    total_species <- rbind(total_species, df)
+  }
+  
+  if (genus_name == model_name) {
+    species_list <- filter(trees_final, trees_final$genus == genus_name)
+    df <- data.frame(model = model_name, n_total = nrow(species_list))
+    total_species <- rbind(total_species, df)
+  }
+}
+
+segments <- merge(segments, total_species, by = "model")
+
+segments$label <- segments$genus
+segments$label <- paste0("italic('", segments$label, "')")
+
+segments$label <- with(segments, paste0(label, "[", 
+  ifelse(category == "HRTF", "\"nat.\"",""),
+  "]"))
+
+segments$Rhat <- round(segments$Rhat, 2)
+segments$label <- str_c(segments$label,"~", "(", segments$n_species, "/",segments$n_total, ")")
+
+segments$label <- str_c(segments$label, ifelse(segments$Rhat > 1.01 & segments$Rhat <= 1.05, paste0('~"*"'), 
+                           ifelse(segments$Rhat > 1.05, paste0('~"**"'), '~" "')))
+
+
+all_data_limits_long <- pivot_longer(all_data_limits,
+                              cols = c(b_bio5_Intercept, b_bio6_Intercept),
+                              names_to = "Intercept",
+                              values_to = "value")
+
+plot_order <- all_data_limits_long %>%
+  group_by(model) %>%
+  filter(Intercept == "b_bio5_Intercept") %>%
+  summarize(median_bio5 = median(value)) %>%
+  arrange(median_bio5) %>%
+  pull(model)
+
+all_data_limits_long <- all_data_limits_long %>%
+  mutate(model = factor(model, levels = plot_order))
+
+segments <- segments %>%
+  mutate(model = factor(model, levels = plot_order))
+
+paleotrees_adj <- dataset_final
+paleotrees_adj$last_presence <- apply(paleotrees_adj[,-1], 1, function(x) {
+  if(any(x == 1)) names(x)[max(which(x == 1))] else NA
+})
+
+segments <- merge(segments, paleotrees_adj[,c(1,13)], by = "genus")
+
+segments$last_presence <- ifelse(segments$last_presence %in% c("Eem","Tegelen","Waal","Cromer","Holstein"), "Pleistocene", segments$last_presence)
+
+colors_periods <- c("Holocene" = "#DCE8E9", 
+                    "Eem" = "#CBF5FC",
+                    "Holstein" = "#B4E2E3",
+                    "Cromer" = "#99D9DD",
+                    "Waal" = "#7FC5DD",
+                    "Tegelen" = "#4FB3D4",
+                    "Pliocene" = "#FFF6B2",
+                    "Miocene" = "#FFEB3D",
+                    "Oligocene" = "#FFC694",
+                    "Eocene" = "#FFBC87",
+                    "Pleistocene" = "#99d9ddff")
+
+
+medians_climate <- combined_data %>% 
+  group_by(group) %>% 
+  summarise(bio5_median = median(bio5), bio6_median = median(bio6))
+
+```
+
+Create plots for Fig. 5 showing distribution by land area of current and future climate scenarios in Western and Central Europe.
+```{r}
+#Define area [km2] per pixel under "EPSG:3035"
+#res(bioclim_current) = 19687.94 * 19687.94 / 1e+06 = 387.615
+km2_per_pixel <- 387.615
+
+combined_data$group <- factor(combined_data$group, levels = c("ssp585","ssp126","current"))
+
+d1 <- ggplot(combined_data, aes(x = bio5, fill = group)) +
+  geom_histogram(
+    aes(y = ..count.. * km2_per_pixel),
+    binwidth = 0.5,
+    position = "identity",
+    alpha = 0.6
+  ) +
+  scale_fill_manual(
+    values = c("#909090", "#FF9538", "#EB0000"),
+    breaks = c("current", "ssp126", "ssp585")
+  ) +
+  scale_color_manual(
+    values = c("#909090", "#FF9538", "#EB0000"),
+    breaks = c("current", "ssp126", "ssp585")
+  ) +
+  scale_y_continuous(
+    limits = c(0, 250000),
+    breaks = c(0, 100000, 200000),
+    labels = c("0", "100", "200"),
+    position = "right"
+  ) +
+  ylab(" ") +
+  coord_cartesian(xlim = c(-20, 50)) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.line.x = element_blank(),
+    axis.text.y = element_text(size = 28, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.y = element_line(colour = "black"),
+    axis.line.y = element_line(),
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    plot.margin = unit(c(0, 0, -0.25, 0), "cm")
+  )
+
+d2 <- ggplot(combined_data, aes(x = bio6, fill = group)) +
+  geom_histogram(
+    aes(y = ..count.. * km2_per_pixel),
+    binwidth = 0.5,
+    position = "identity",
+    alpha = 0.6
+  ) +
+  scale_fill_manual(
+    values = c("#909090", "#FF9538", "#EB0000"),
+    breaks = c("current", "ssp126", "ssp585")
+  ) +
+  scale_color_manual(
+    values = c("#909090", "#FF9538", "#EB0000"),
+    breaks = c("current", "ssp126", "ssp585")
+  ) +
+  ylab(" ") +
+  scale_y_reverse(
+    limits = c(250000, 0),
+    breaks = c(0, 100000, 200000),
+    labels = c("0", "100", "200")
+  ) +
+  scale_x_continuous(position = "top") +
+  coord_cartesian(xlim = c(-20, 50)) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.line.x = element_blank(),
+    axis.text.y = element_text(size = 28, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.y = element_line(colour = "black"),
+    axis.line.y = element_line(),
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    plot.margin = unit(c(0, 0, -0.25, 0), "cm")
+  )
+```
+
+
+Create plots for Fig. 5 showing upper and lower thermal limits for all Cenozoic tree genera.
+```{r}
+p1 <- ggplot() +
+  geom_vline(
+    xintercept = medians_climate$bio5_median,
+    linetype = "dotted",
+    alpha = 0.5,
+    size = 2,
+    color = c("#909090", "#FF9538", "#EB0000")
+  ) +
+  geom_vline(
+    xintercept = medians_climate$bio6_median,
+    linetype = "dotted",
+    alpha = 0.5,
+    size = 2,
+    color = c("#909090", "#FF9538", "#EB0000")
+  ) +
+  geom_segment(
+    data = segments,
+    aes(
+      yend = model,
+      y = model,
+      x = median_bio6,
+      xend = median_bio5,
+      color = category
+    ),
+    size = 3,
+    alpha = 0.5
+  ) +
+  geom_density_ridges(
+    data = all_data_limits_long,
+    aes(
+      x = value,
+      y = model,
+      group = interaction(model, Intercept),
+      fill = category
+    ),
+    alpha = 0.6,
+    position = position_identity(),
+    color = "black",
+    scale = 5,
+    rel_min_height = 0.005
+  ) +
+  geom_text(
+    data = segments,
+    aes(x = median_bio5, y = model, label = label),
+    nudge_x = 15,
+    size = 3,
+    parse = TRUE,
+    hjust = 0
+  ) +
+  geom_tile(
+    data = segments,
+    aes(y = model, x = median_bio5 + 11, fill = last_presence),
+    width = 4,
+    height = 0.9,
+    alpha = 1
+  ) +
+  scale_x_continuous(
+    limits = c(-20, 50),
+    breaks = c(-20, -10, 0, 10, 20, 30, 40),
+    sec.axis = dup_axis()
+  ) +
+  scale_fill_manual(
+    values = c(
+      "EG" = "#FFD579",
+      "HRTF" = "#237B55",
+      "REG" = "#69A0C9",
+      colors_periods
+    )
+  ) +
+  scale_color_manual(values = c(
+    "EG" = "#FFD579",
+    "HRTF" = "#237B55",
+    "REG" = "#69A0C9"
+  )) +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.line.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.text.x = element_text(size = 28, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black")
+  )
+
+layout <- "
+A
+C
+C
+C
+C
+C
+C
+C
+C
+C
+C
+B
+"
+
+plot <- d1 + d2 + p1 +
+  plot_layout(design = layout)
+plot
+
+ggsave(plot = plot, filename = "Fig5_thermal_limits.pdf", path = here("figures"), width = 17, height = 40, device='pdf', dpi=1000)
+
+```

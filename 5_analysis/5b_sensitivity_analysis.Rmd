@@ -1,0 +1,369 @@
+---
+title: "Conduct sensitivity analyses around the definition of a tree genus (Figs. S1 - S6)."
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(dplyr)
+library(readxl)
+library(writexl)
+library(rWCVP) 
+library(rWCVPdata)
+library(stringr)
+library(U.Taxonstand) 
+library(here) 
+library(betapart)
+library(tidyr)
+library(ggplot2)
+```
+
+
+Re-run the script from 1_fossil_data for multiple thresholds (seq(0,1, by = 0.1)) to conduct sensitivity analysis around this value.
+NOTE: Run the first 6 code blocks in 1a_fossil_data before running the code below.
+
+Prepare data:
+```{r, eval = FALSE}
+sensitivity_results_richness <- data.frame()
+sensitivity_results_angio <- data.frame()
+sensitivity_results_gymno <- data.frame()
+sensitivity_results_beta <- data.frame()
+
+#Minimum proportion of tree forming species
+thresholds <- seq(0,1, by = 0.1)
+
+for(t in 1:length(thresholds)) {
+
+threshold <- thresholds[t]
+print(threshold)
+tree_genera <- filter(counts, counts$proportion_tree >= threshold)
+trees_final <- filter(trees, trees$genus %in% tree_genera$genus)
+
+pbdb_data_filtered <- pbdb_data %>% 
+  filter(min_ma <= 65.999) %>% 
+  filter(max_ma >= 2.58) %>% 
+  filter(genus %in% trees_final$genus) %>% 
+  filter(phylum %in% c("Gymnospermophyta","Cycadeoideophyta","Coniferophyta","","NO_PHYLUM_SPECIFIED","Pinophyta","Cycadophyta","Tracheophyta","Angiospermae","Ginkgophyta","Spermatophyta","Magnoliophyta")) %>% 
+  filter(cc %in% WCE)
+
+pbdb_genera <- unique(pbdb_data_filtered$genus)
+pbdb_genera <- na.omit(pbdb_genera)
+
+pbdb_genera <- as.data.frame(pbdb_genera)
+colnames(pbdb_genera) <- "genus"
+
+stratigraphy_epochs <- stratigraphy[1:5,]
+
+dataset <- pbdb_genera
+dataset <- as.data.frame(dataset)
+colnames(dataset) <- "genus"
+
+for (epoch in stratigraphy_epochs$time_bin) {
+  dataset[[epoch]] <- NA
+}
+
+for (n in 1:nrow(dataset)) {
+  genus <- dataset$genus[n]
+  genus_intervals <- filter(pbdb_data_filtered, pbdb_data_filtered$genus == !!genus)
+  #rint(genus)
+  for (k in 1:nrow(genus_intervals)) {
+    max_t <- genus_intervals[k,"max_ma"]
+    min_t <- genus_intervals[k,"min_ma"]
+    for (j in 2:6) {
+      max_epoch <- stratigraphy_epochs[j-1,2]
+      max_epoch <- as.numeric(max_epoch)
+      min_epoch <- stratigraphy_epochs[j-1,3]
+      min_epoch <- as.numeric(min_epoch)
+      dataset[n,j] <- ifelse((max_t >= max_epoch & min_t <= min_epoch), 1,
+                                        ifelse((max_t >= max_epoch & min_t <= max_epoch), 1,
+                                               ifelse((max_t >= min_epoch & min_t <= min_epoch), 1,
+                                                      ifelse((max_t <= max_epoch & min_t >= min_epoch), 1, dataset[n,j]))))
+                                 
+    }}}
+
+dataset[is.na(dataset)] <- 0
+pbdb_dataset <- dataset
+
+literature_data[,-1] <- lapply(literature_data[,-1], as.numeric)
+literature_genera <- unique(literature_data$Genus)
+
+dataset_combined <- pbdb_dataset
+literature_genera_with_no_pbdb_records <- setdiff(literature_genera, dataset_combined$genus)
+literature_genera_with_no_pbdb_records <- as.data.frame(literature_genera_with_no_pbdb_records)
+colnames(literature_genera_with_no_pbdb_records) <- "genus"
+
+for (epoch in stratigraphy_epochs$time_bin) {
+  literature_genera_with_no_pbdb_records[[epoch]] <- NA
+}
+
+
+literature_genera_with_no_pbdb_records <- filter(literature_genera_with_no_pbdb_records, literature_genera_with_no_pbdb_records$genus %in% trees_final$genus)
+dataset_combined <- rbind(dataset_combined, literature_genera_with_no_pbdb_records)
+
+
+for (n in 1:nrow(dataset_combined)) {
+  genus_name <- dataset_combined[n,1]
+  #print(genus_name)
+  
+  literature_data_filtered <- dplyr::filter(literature_data, literature_data$Genus == genus_name)
+  literature_data_filtered <- literature_data_filtered[,1:6]
+  
+  if(nrow(literature_data_filtered) == 0){
+    next
+  }
+  
+  for (k in 2:6) {
+    
+    dataset_combined[n,k] <- ifelse(literature_data_filtered[[1,k]] == 1, 1, 0)
+  }}
+
+dataset_combined[is.na(dataset_combined)] <- 0
+
+for (interglacial in colnames(literature_data)[7:11]) {
+  dataset_combined[[interglacial]] <- NA
+}
+
+for (n in 1:nrow(dataset_combined)) {
+  genus_name <- dataset_combined[n,1]
+  #print(genus_name)
+  
+  literature_data_filtered <- dplyr::filter(literature_data, literature_data$Genus == genus_name)
+  
+    if(nrow(literature_data_filtered) == 0){
+    next
+  }
+  
+  for (k in 7:11) {
+
+    dataset_combined[n,k] <- ifelse(literature_data_filtered[[1,k]] == 1, 1, 0)
+  }}
+
+
+dataset_combined[is.na(dataset_combined)] <- 0
+
+
+dataset_final <- filter(dataset_combined, dataset_combined$genus %in% trees_final$genus)
+
+checklist_filtered <- checklist %>% filter(area_code_l3 %in% WCE_botanical_countries) %>%
+  filter(taxon_status == "Accepted") %>%
+  filter(occurrence_type == "native") %>%
+  filter(continent == "EUROPE") %>%
+  filter(area_code_l3 != "FRA")
+
+checklist_filtered <- filter(checklist_filtered, genus %in% trees_final$genus)
+
+native_genera <- unique(checklist_filtered$species_name)
+native_genera <- unique(word(native_genera, 1))
+
+dataset_final$Holocene <- NA
+dataset_final$Holocene <- ifelse(dataset_final$genus %in% native_genera, 1, 0)
+
+###GENUS RICHNESS
+dataset_final_higher <- merge(dataset_final, trees[,c(2,5)], by = "genus") %>% 
+            distinct()
+
+#Angiosperms
+angio <- colSums(filter(dataset_final_higher, dataset_final_higher$higher == "Angiosperms")[,2:12])
+
+#Gymnosperms
+gymno <- colSums(filter(dataset_final_higher, dataset_final_higher$higher == "Gymnosperms")[,2:12])
+
+
+sensitivity_results_richness <- rbind(sensitivity_results_richness, colSums(dataset_final[,2:12]))
+sensitivity_results_angio <- rbind(sensitivity_results_angio, angio)
+sensitivity_results_gymno <- rbind(sensitivity_results_gymno, gymno)
+
+###BETA DIVERSITY
+beta_data <- dataset_final[,2:12]
+beta_data <- t(beta_data)
+
+beta_pair <- beta.pair(beta_data, index.family = "sorensen")
+
+data <- as.matrix(beta_pair$beta.sim)
+beta_sim <- diag(data[1:(nrow(data)-1), 2:ncol(data)])
+
+data <- as.matrix(beta_pair$beta.sne)
+beta_sne <- diag(data[1:(nrow(data)-1), 2:ncol(data)])
+
+data <- as.matrix(beta_pair$beta.sor)
+beta_sor <- diag(data[1:(nrow(data)-1), 2:ncol(data)])
+
+beta <- cbind(beta_sim, beta_sne, beta_sor)
+beta <- as.data.frame(beta)
+periods <- c("Paleocene", "Eocene", "Oligocene", "Miocene", "Pliocene", "Tegelen", "Waal", "Cromer", "Holstein", "Eem", "Holocene")
+pair_names <- paste(periods[1:(length(periods)-1)], periods[2:length(periods)], sep = "-")
+beta$names <- pair_names
+beta <- pivot_longer(beta, cols = 1:3)
+beta$names <- factor(beta$names, levels = c("Paleocene-Eocene","Eocene-Oligocene","Oligocene-Miocene","Miocene-Pliocene","Pliocene-Tegelen","Tegelen-Waal","Waal-Cromer","Cromer-Holstein","Holstein-Eem","Eem-Holocene"))
+beta$threshold = threshold
+
+sensitivity_results_beta <- rbind(sensitivity_results_beta, beta)
+
+}
+
+##GENUS RICHNESS
+sensitivity_results_richness$threshold <- thresholds
+sensitivity_results_angio$threshold <- thresholds
+sensitivity_results_gymno$threshold <- thresholds
+
+colnames(sensitivity_results_richness) <- c(stratigraphy$time_bin, "threshold")
+colnames(sensitivity_results_angio) <- c(stratigraphy$time_bin, "threshold")
+colnames(sensitivity_results_gymno) <- c(stratigraphy$time_bin, "threshold")
+
+
+sensitivity_results_richness_long <- pivot_longer(sensitivity_results_richness, cols = 1:11)
+sensitivity_results_richness_long$name <- factor(sensitivity_results_richness_long$name, levels = stratigraphy$time_bin)
+
+sensitivity_results_angio_long <- pivot_longer(sensitivity_results_angio, cols = 1:11)
+sensitivity_results_angio_long$name <- factor(sensitivity_results_angio_long$name, levels = stratigraphy$time_bin)
+
+sensitivity_results_gymno_long <- pivot_longer(sensitivity_results_gymno, cols = 1:11)
+sensitivity_results_gymno_long$name <- factor(sensitivity_results_gymno_long$name, levels = stratigraphy$time_bin)
+```
+
+Create plots for Figs S1 - S3:
+```{r, eval = FALSE}
+richness1 <- ggplot(data = sensitivity_results_richness_long, 
+       aes(x = name, y = value, color = threshold, group = threshold)) +
+  geom_line(size = 2.5) + 
+  scale_color_gradient(low = "black", "high" = "lightgrey") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")
+  )
+
+
+richness2 <- ggplot(data = sensitivity_results_angio_long, 
+       aes(x = name, y = value, color = threshold, group = threshold)) +
+  geom_line(size = 2.5) + 
+  scale_color_gradient(low = "#daa84cff", "high" = "lightgrey") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")
+  )
+
+richness3 <- ggplot(data = sensitivity_results_gymno_long, 
+       aes(x = name, y = value, color = threshold, group = threshold)) +
+  geom_line(size = 2.5) + 
+  scale_color_gradient(low = "#427f62ff", "high" = "lightgrey") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")
+  )
+
+ggsave("FigS1_sensitivity_richness.pdf",plot = richness1, path = here("figures"), bg = "white", height = 3, width = 6, device = 'pdf')
+ggsave("FigS2_sensitivity_angio.pdf",plot = richness2, path = here("figures"), bg = "white", height = 3, width = 6, device = 'pdf')
+ggsave("FigS3_sensitivity_gymno.pdf",plot = richness3, path = here("figures"), bg = "white", height = 3, width = 6, device = 'pdf')
+
+
+```
+
+Create plots for Figs S4 - S6:
+```{r, eval = FALSE}
+beta1 <- ggplot(data = filter(sensitivity_results_beta, sensitivity_results_beta$name == "beta_sor"), 
+       aes(x = names, y = value, color = threshold, group = threshold)) +
+  geom_line(size = 2.5) + 
+  scale_color_gradient(low = "black", "high" = "lightgrey") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")
+  )
+
+
+beta2 <- ggplot(data = filter(sensitivity_results_beta, sensitivity_results_beta$name == "beta_sne"), 
+       aes(x = names, y = value, color = threshold, group = threshold)) +
+  geom_line(size = 2.5) + 
+  scale_color_gradient(low = "#9a0b0bff", "high" = "lightgrey") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")
+  )
+
+
+beta3 <- ggplot(data = filter(sensitivity_results_beta, sensitivity_results_beta$name == "beta_sim"), 
+       aes(x = names, y = value, color = threshold, group = threshold)) +
+  geom_line(size = 2.5) + 
+  scale_color_gradient(low = "#3b7fc1ff", "high" = "lightgrey") +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 12, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")
+  )
+ggsave("FigS4_sensitivity_total.pdf",plot = beta1, path = here("figures"), bg = "white", height = 3, width = 6, device = 'pdf')
+ggsave("FigS5_sensitivity_nestedness.pdf",plot = beta2, path = here("figures"), bg = "white", height = 3, width = 6, device = 'pdf')
+ggsave("FigS6_sensitivity_turnover.pdf",plot = beta3, path = here("figures"), bg = "white", height = 3, width = 6, device = 'pdf')
+
+```

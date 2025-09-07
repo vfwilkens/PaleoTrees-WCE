@@ -1,0 +1,149 @@
+---
+title: "Analysis of final occurrences of regionally extinct genera in the Pleistocene (Fig. 3)"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(here)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+library(readxl)
+library(stringr)
+library(rWCVP)
+```
+
+Load in data for Fig. 3:
+```{r, eval = FALSE}
+dataset_final <- read_xlsx(here("./data/data_1/dataset_final_28_06_25.xlsx"))
+trees_final <- read.csv(here("./data/data_1/trees_final.csv"))[, -1]
+native_genera <- read.csv(here("./data/data_1/native_genera.csv"))[, -1]
+```
+
+Prepare data for Fig. 3:
+```{r, eval = FALSE}
+pleistocene_data <- dataset_final[, c(1, 7:11)]
+filter <- rowSums(pleistocene_data[, -1])
+
+pleistocene_data <- filter(pleistocene_data, filter != 0)
+pleistocene_data <- melt(pleistocene_data)
+pleistocene_data <- filter(pleistocene_data, !pleistocene_data$genus %in% native_genera)
+
+stratigraphy <- read_xlsx(here("./data/data_1/stratigraphy.xlsx"))
+colnames(stratigraphy)[1] <- "variable"
+
+pleistocene_data <- merge(pleistocene_data, stratigraphy, by = "variable")
+pleistocene_data <- filter(pleistocene_data, pleistocene_data$value == 1)
+
+pleistocene_data$status <- ifelse(pleistocene_data$genus %in% native_genera, 1, 0)
+
+str(pleistocene_data)
+
+period_order <- c("Tegelen", "Waal", "Cromer", "Holstein", "Eem")
+
+pleistocene_data$variable <- factor(pleistocene_data$variable,
+                                    levels = period_order,
+                                    ordered = TRUE)
+
+last_appearance <- stats::aggregate(variable ~ genus, data = pleistocene_data, FUN = max)
+
+sorted_genera <- last_appearance[order(last_appearance$variable, decreasing = TRUE), ]
+
+print(sorted_genera)
+
+total_species <- data.frame()
+for (g in 1:length(unique(pleistocene_data$genus))) {
+  genus_name <- unique(pleistocene_data$genus)[[g]]
+  
+  species_list <- filter(trees_final, trees_final$genus == genus_name)
+  df <- data.frame(genus = genus_name, n_total = nrow(species_list))
+  total_species <- rbind(total_species, df)
+}
+
+total_species <- distinct(total_species)
+
+
+pleistocene_data <- merge(pleistocene_data, total_species, by = "genus")
+
+pleistocene_data$label <- pleistocene_data$genus
+pleistocene_data$label <- paste0("italic('", pleistocene_data$label, "')")
+
+pleistocene_data$label <- str_c(pleistocene_data$label,
+                                "~",
+                                "(",
+                                pleistocene_data$n_total,
+                                ")")
+
+pleistocene_data$genus <- factor(pleistocene_data$genus, levels = sorted_genera$genus)
+
+```
+
+Generate data for current distributions of each regionally extinct genus:
+```{r, eval = FALSE}
+pleistocene_data$EUR <- 0
+pleistocene_data$NAM <- 0
+pleistocene_data$ATP <- 0
+
+checklist <- wcvp_checklist(taxon_rank = "genus", synonyms = FALSE, native = TRUE, 
+                   location_doubtful = FALSE, hybrids = FALSE, infraspecies = FALSE)
+checklist$species_name <- paste(checklist$genus, checklist$species, sep = " ")
+
+checklist_filtered <- checklist %>% filter(genus %in% pleistocene_data$genus) %>%
+  filter(taxon_status == "Accepted") %>%
+  filter(occurrence_type == "native")
+
+for (g in 1:length((pleistocene_data$genus))) {
+  genus_name <- pleistocene_data$genus[[g]]
+  continents <- filter(checklist_filtered, checklist_filtered$genus == genus_name)
+  
+  pleistocene_data[g, 10] <- ifelse(any(continents$continent == "EUROPE"), 1 , 0)
+  pleistocene_data[g, 11] <- ifelse(any(continents$continent == "NORTHERN AMERICA"), 1, 0)
+  pleistocene_data[g, 12] <- ifelse(any(continents$continent == "ASIA-TEMPERATE"), 1, 0)
+  
+}
+
+table_data <- select(pleistocene_data, genus, label, EUR, NAM, ATP)
+table_data <- distinct(table_data)
+```
+
+Create plot for Fig. 3:
+```{r, eval = FALSE}
+plot <- ggplot() +
+  geom_segment(data = pleistocene_data, aes(y = genus, yend = genus, x = min_ma, xend = max_ma, color = factor(status)), size = 4) +
+  geom_point(data = table_data[table_data$NAM == 1,], aes(y = genus, x = 2.9), color = "black") + 
+  geom_point(data = table_data[table_data$EUR == 1,], aes(y = genus, x = 2.8), color = "black") + 
+  geom_point(data = table_data[table_data$ATP == 1,], aes(y = genus, x = 2.7), color = "black") + 
+
+  scale_x_reverse(breaks = c(2.6, 2, 1, 0)) +
+   geom_text(
+    data = table_data,
+    aes(x = 3, y = genus, label = label),
+    nudge_x = -.8,
+    parse = TRUE,
+    hjust = 0
+  ) +
+    scale_color_manual(values = c("#69A0C9","#FFD579")) +
+  xlab("Time [Ma]") +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_text(size = 18, colour = "black"),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 18, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.ticks.length = unit(0.5, "cm"),
+    axis.ticks.x = element_line(colour = "black"),  
+    axis.ticks.y = element_blank()  
+)
+
+ggsave(plot = plot, filename = "Fig3_occurrences.pdf", path = here("figures"), width = 10, height = 6, device='pdf', dpi=700, bg = "white")
+
+```
+

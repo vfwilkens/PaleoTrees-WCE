@@ -1,0 +1,89 @@
+---
+title: "Filtering and thinning occurrence data"
+output:
+  html_document:
+    df_print: paged
+---
+  
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(here)
+library(readxl)
+library(data.table)
+library(GeoThinneR)
+library(dplyr)
+```
+
+Read in data again if not already done so from previous scripts.
+```{r, eval = FALSE}
+#The final fossil dataset produced after 1_fossil_data.
+dataset_final <- read_xlsx(here("./data/data_1/dataset_final_28_06_25.xlsx"))
+all_genera <- dataset_final$genus
+
+#Checklist of tree species/genera generated in 1_fossil_data.
+trees_final <- read.csv(here("./data/data_1/trees_final.csv"))
+```
+
+For each genus, loop through each species to filter bad coordinates and thin down the occurrence data to a set minimum distance (25 km in our case) before writing the .csv file for each genus to an output folder.
+```{r, eval = FALSE}
+occurrence_data_path <- here("./data/data_2/occurrence_data/") #Input path (output path from 2a_occurrence_data)
+output_path <- here("./data/data_2/occurrence_data_filtered/") #Output path for the thinned .csv file of each genus
+thin_dist <- 25 #Thinning distance in km
+
+
+for(g in 1:length(all_genera)){
+  print(g)
+  genus_name <- all_genera[[g]]
+  print(genus_name)
+  
+  zip_file <- file.path(occurrence_data_path, paste0(genus_name, ".zip"))
+  
+  file_list <- unzip(zip_file, list = TRUE)
+  
+  csv_file <- file_list$Name[grepl("\\.csv$", file_list$Name)][1]
+  
+  unzip(zip_file, files = csv_file, exdir = occurrence_data_path)
+  
+  genus_data <- fread(file.path(occurrence_data_path, csv_file))
+  
+  unlink(file.path(occurrence_data_path, csv_file))
+  
+  genus_data <- genus_data %>% 
+    filter(genus == !!genus_name) %>% 
+    filter(coordinatePrecision < 0.01 | is.na(coordinatePrecision)) %>% 
+    filter(coordinateUncertaintyInMeters < 10000 | is.na(coordinateUncertaintyInMeters)) %>%
+    filter(!coordinateUncertaintyInMeters %in% c(301,3036,999,9999)) %>% 
+    filter(!decimalLatitude == 0 | !decimalLongitude == 0) %>%
+    filter(basisOfRecord %in% c("OBSERVATION", "OCCURRENCE", "HUMAN_OBSERVATION","PRESERVED_SPECIMEN")) %>% 
+    filter(species %in% trees_final$species) 
+  
+  species_list <- unique(genus_data$species)
+  
+  thinned_data_all <- data.frame()
+  
+  for (s in 1:length(species_list)) {
+    species_name <- species_list[[s]]
+    print(species_name)
+    species_data <- filter(genus_data, genus_data$species == !!species_name)
+    
+    species_data <- select(species_data, species, decimalLongitude, decimalLatitude)
+    
+    occurrences <- species_data
+    
+    thinned_index <- GeoThinneR::grid_thinning(occurrences[,c("decimalLongitude","decimalLatitude")], thin_dist = thin_dist)
+    thinned_index <- as.data.frame(thinned_index)
+    
+    colnames(thinned_index) <- "logic"
+    
+    thinned_data <- filter(occurrences, thinned_index$logic == TRUE)
+    
+    thinned_data_all <- rbind(thinned_data_all, thinned_data)
+    
+  }
+  
+  final_path <- file.path(output_path, paste0(genus_name, ".csv"))
+  write.csv(thinned_data_all, final_path)
+  
+}
+
+```

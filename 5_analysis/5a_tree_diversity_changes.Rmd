@@ -1,0 +1,200 @@
+---
+title: "Analysis of tree diversity changes (richness and beta diverisity) for Fig. 2"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(here)
+library(readxl)
+library(reshape2)
+library(betapart)
+library(patchwork)
+```
+
+Prepare fossil data for the plots by calculating summary statistics for each time bin.
+```{r, eval = FALSE}
+dataset_final <- read_xlsx(here("./data/data_1/dataset_final_28_06_25.xlsx"))
+trees_final <- read.csv(here("./data/data_1/trees_final.csv"))[,-1]
+
+dataset_final <- merge(dataset_final, distinct(trees_final[,c(2,5)]), by = "genus")
+
+paleotrees_summary <- dataset_final %>%
+  group_by(higher) %>%
+  summarize(across(Paleocene:Holocene, ~ sum(. == 1))) %>% 
+  melt()
+
+stratigraphy <- read_xlsx(here("./data/data_1/stratigraphy.xlsx"))
+colnames(stratigraphy)[1] <- "variable"
+
+paleotrees_summary <- merge(paleotrees_summary, stratigraphy, by = "variable")
+
+paleotrees_summary$mid_point_transformed <- paleotrees_summary$mid_point
+
+paleotrees_summary <- paleotrees_summary %>%
+  arrange(desc(mid_point))
+
+paleotrees_summary$mid_point_transformed[9:22] <- rep((1:7 + paleotrees_summary$mid_point_transformed[8]), each = 2)
+```
+
+Create plots for Fig 2a and 2b.
+```{r, eval = FALSE}
+#Fig. 2a
+plot1 <- ggplot(paleotrees_summary,
+       aes(x = variable, y = value, fill = higher)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  theme_minimal() +
+  ylim(0,180) +
+theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 18, colour = "black"),
+    axis.text.x = element_text(size = 18, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.ticks.length = unit(0.5, "cm"), 
+    axis.ticks.x = element_line(colour = "black"), 
+    axis.ticks.y = element_line(colour = "black") 
+) +
+  scale_fill_manual(values = c("#DAA84C", "#427F62"), labels = c("Angiosperms","Gymnosperms"))
+
+#Fig. 2b
+plot2 <- ggplot(paleotrees_summary, aes(y = value, x = min_ma, xend = max_ma, yend = value, color = higher)) +
+  geom_segment(size = 3, alpha = 0.6) +
+  geom_line(aes(x = mid_point,y = value, group = higher), size = 1) +
+  scale_x_reverse() +
+    ylim(0,180) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 18, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 18, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"),  
+    axis.ticks.x = element_line(colour = "black"),
+    axis.ticks.y = element_line(colour = "black")  
+) +
+  scale_color_manual(values = c("#DAA84C", "#427F62"), labels = c("Angiosperms","Gymnosperms"))
+
+layout <- "
+AAB
+"
+
+plot <- plot1 + plot2 +
+  plot_layout(design = layout)
+plot
+ggsave(plot = plot, filename = "Fig2_richness.pdf", path = here("figures"), width = 15, height = 5, device='pdf')
+```
+
+Close-up of the Pleistocene-Holocene in real-time (included in Fig. 2b)
+```{r, eval = FALSE}
+
+plot3 <- ggplot(filter(paleotrees_summary, paleotrees_summary$max_ma <= 2.45), aes(y = value, x = min_ma, xend = max_ma, yend = value, color = higher)) +
+  geom_segment(size = 3, alpha = 0.6) +
+  geom_line(aes(x = mid_point,y = value, group = higher), size = 1) +
+  scale_x_reverse(breaks = c(0,2.6), limits = c(2.6, 0), labels = c("0","2.6")) +
+  scale_y_continuous(limits = c(0, 50), breaks = c(0,25,50)) +
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 18, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_text(size = 18, colour = "black"),
+    axis.ticks.length = unit(0.5, "cm"), 
+    axis.ticks.x = element_line(colour = "black"),  
+    axis.ticks.y = element_line(colour = "black")  
+) +
+  scale_color_manual(values = c("#DAA84C", "#427F62"), labels = c("Angiosperms","Gymnosperms"))
+
+ggsave("Fig2_pleistocene.pdf",plot = plot3, path = here("figures"), bg = "white", height = 3, width = 3, device = 'pdf')
+```
+
+Prepare fossil data for the plots by calculating beta diversity with nestedness and turnover components.
+```{r, eval = FALSE}
+beta_data <- dataset_final[,2:12]
+beta_data <- t(beta_data)
+
+beta_pair <- beta.pair(beta_data, index.family = "sorensen")
+
+data <- as.matrix(beta_pair$beta.sim)
+beta_sim <- diag(data[1:(nrow(data)-1), 2:ncol(data)])
+
+data <- as.matrix(beta_pair$beta.sne)
+beta_sne <- diag(data[1:(nrow(data)-1), 2:ncol(data)])
+
+data <- as.matrix(beta_pair$beta.sor)
+beta_sor <- diag(data[1:(nrow(data)-1), 2:ncol(data)])
+
+beta <- cbind(beta_sim, beta_sne, beta_sor)
+beta <- as.data.frame(beta)
+
+periods <- stratigraphy$variable
+pair_names <- paste(periods[1:(length(periods)-1)], periods[2:length(periods)], sep = "-")
+
+beta$names <- pair_names
+beta <- pivot_longer(beta, cols = 1:3)
+
+beta <- add_row(beta, names = "placeholder", name = "beta_sim", value = 0)
+
+beta$names <- factor(beta$names, levels = c("placeholder","Paleocene-Eocene","Eocene-Oligocene","Oligocene-Miocene","Miocene-Pliocene","Pliocene-Tegelen","Tegelen-Waal","Waal-Cromer","Cromer-Holstein","Holstein-Eem","Eem-Holocene"))
+```
+
+Create plots for Fig 2c.
+```{r, eval = FALSE}
+#Fig. 1c
+plot4 <- ggplot(filter(beta, beta$name != "beta_sor"),
+       aes(x = names, y = value, fill = name)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  theme_minimal() +
+theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(colour = "black"),
+    axis.line.y = element_line(colour = "black"),
+    axis.text.y = element_text(size = 18, colour = "black"),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.length = unit(0.5, "cm"), 
+    axis.ticks.x = element_line(colour = "black"), 
+    axis.ticks.y = element_line(colour = "black") 
+) +
+  scale_fill_manual(values = c("#3b7fc1ff","#9A0B0B"), labels = c("turnover","nestedness"))
+
+
+ggsave("Fig2_beta.pdf",plot = plot4, path = here("figures"), bg = "white", height = 5, width = 10, device = 'pdf')
+```
+
+Calculate the number of angiosperm and gymnosperm genera for the whole Pleistocene.
+```{r, eval = FALSE}
+pleistocene <- dataset_final[,c(7:11,13)]
+pleistocene_a <- filter(pleistocene, pleistocene$higher == "Angiosperms")
+pleistocene_g <- filter(pleistocene, pleistocene$higher == "Gymnosperms")
+
+sum(rowSums(pleistocene_a[,-6]) > 0)
+sum(rowSums(pleistocene_g[,-6]) > 0)
+```
+

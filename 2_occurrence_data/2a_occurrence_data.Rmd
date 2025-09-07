@@ -1,0 +1,81 @@
+---
+title: "Download tree species occurrence data"
+output:
+  html_document:
+    df_print: paged
+---
+NOTE: All occurrence data may take upwards of 1 - 2 days to download. To avoid re-downloading all data used in this study, it is recommended to skip to "2c_occurrence_compiled.Rmd" for calculating sampling bias weights and generating phylogenies of each genus. All occurrence data used in the genus-level niche models (after filtering and thinning) is found in "occurrences.csv".
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(rgbif)
+library(dplyr)
+library(here)
+library(readxl)
+```
+
+Specify your GBIF credentials.
+```{r, eval = FALSE}
+# Fill in your own gbif.org credentials. 
+user <- RGBIF_USR # your gbif.org username 
+pwd <- RGBIF_PWD # your gbif.org password
+email <- RGBIF_EMAIL # your email
+
+```
+
+Read in fossil occurrence data and our standardized list of tree species.
+```{r, eval = FALSE}
+#The final fossil dataset produced after 1_fossil_data.
+dataset_final <- read_xlsx(here("./data/data_1/dataset_final_28_06_25.xlsx"))
+
+#Checklist of tree species/genera generated in 1_fossil_data.
+trees_final <- read.csv(here("./data/data_1/trees_final.csv"))
+```
+
+Download and save the species occurrence data for each genus. The DOI of each data request is also saved and stored in "occurrence_references.RData".
+```{r, eval = FALSE}
+#We download occurrence data to fit models for all tree genera in our final fossil dataset.
+all_genera <- dataset_final$genus
+
+#Specify an output directory.
+output = here("./data/data_2/occurrence_data/")
+
+for(g in 1:length(all_genera)){
+
+genus_name <- all_genera[g]
+print(genus_name)
+print(g)
+
+species_list <- filter(trees_final, trees_final$genus == !!genus_name)
+species_list <- species_list$species
+
+gbif_taxon_keys <- 
+      species_list %>%
+      name_backbone_checklist()  %>% 
+      filter(!matchType == "NONE") %>% 
+      pull(usageKey) 
+
+gbif_download <- occ_download(
+      pred_in("taxonKey", gbif_taxon_keys),
+      pred("hasCoordinate", TRUE), 
+      pred("hasGeospatialIssue", FALSE),
+      user=user,pwd=pwd,email=email,
+      format = "SIMPLE_CSV") 
+
+occ_download_wait(gbif_download)
+
+d <- occ_download_get(gbif_download, path = output)
+d <- attr(d, "key")
+file_key <- as.character(d)
+
+new_file_name <- paste0(output, genus_name, ".zip")
+old_file_name <- paste0(output, file_key, ".zip")
+
+file.rename(old_file_name, new_file_name)
+
+print(genus_name)
+
+}
+
+```
+

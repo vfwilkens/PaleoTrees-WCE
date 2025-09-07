@@ -1,0 +1,268 @@
+---
+title: "Fitting phylogenetic generalized linear mixed models of genus-level niche centers and limits"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(ape)
+library(brms)
+library(here)
+library(dplyr)
+library(data.table)
+```
+
+Load in the final occurrence data and specify input path for the phylogenetic trees of each genus as well as output paths for models of niche centers and limits, respectively.
+```{r, eval = FALSE}
+occurrences <- fread(here("./data/data_4/occurrences_final.csv"))
+occurrences <- select(occurrences,
+                      species,
+                      genus,
+                      genus2,
+                      bio1,
+                      bio12,
+                      bio5,
+                      bio6,
+                      weights
+                      )
+
+all_models <- unique(occurrences$genus2)
+
+#Input path for phylogenetic trees
+tree_path <- here("./data/data_2/trees/")
+
+#Output path for niche centers
+niche_centers_output <- here("./data/niche_centers/model_")
+#Output path for niche limits
+niche_limits_output <- here("./data/niche_limits/model_")
+
+```
+
+Specify parameters for fitting Bayesian models with brms.
+```{r, eval = FALSE}
+cores = 18
+threads = 18
+chains = 4
+iter = 2000
+warmup = 1000
+```
+
+Fit PGLMMs of niche centers.
+```{r, eval = FALSE}
+
+for(g in 1:length(all_models)) {
+  model_name <- all_models[[g]]
+  print(model_name)
+  print(g)
+
+  #Holocene regional tree flora (estimated using native species from WCE within extant genera only)
+  if (grepl("_na$", model_name)) {
+    filtered_data <- dplyr::filter(occurrences, occurrences$genus2 == !!model_name)
+    filtered_data <- filtered_data[sample(nrow(filtered_data)), ]
+    filtered_data <- na.omit(filtered_data)
+  }
+  
+  #Extant and regionally extinct genera (estimated using all tree species globally)
+  if (!grepl("_na$", model_name)) {
+    filtered_data <- dplyr::filter(occurrences, occurrences$genus == !!model_name)
+    filtered_data <- filtered_data[sample(nrow(filtered_data)), ]
+    filtered_data <- na.omit(filtered_data)
+  }
+  
+  
+  if (nrow(filtered_data) == 0) {
+    print("Skipping due to no data.")
+    next
+  }
+  
+  genus_true_name <- unique(filtered_data$genus)
+  
+  #If the genus being fitted contains more than 1 species:
+  if (length(unique(filtered_data$species)) > 1) {
+    
+    #Load in the corresponding phylogenetic tree and calculate the variance covariance matrix.
+    tree_name <- paste0("tree_", genus_true_name, ".nex")
+    phylo <- ape::read.nexus(paste0(tree_path, tree_name))
+    
+    A <- ape::vcv.phylo(phylo)
+    colnames(A) <- gsub("_", " ", colnames(A))
+    rownames(A) <- gsub("_", " ", rownames(A))
+    
+    #Specify the niche model formulas, including weights proportional to sampling effort required to obtain each occurrence point and the phylogenetic variance         covariance matrix.
+    formula1 <- bf(bio1 | weights(x = weights) ~ 1 + (1 | gr(species, cov = A)), family = gaussian())
+    formula2 <- bf(bio12 | weights(x = weights) ~ 1 + (1 | gr(species, cov = A)), family = Gamma(link = "identity"))
+    
+    multi_formula <- mvbrmsformula(formula1, formula2, rescor = FALSE)
+
+    #Include very broad priors of the genus-level intercepts to help with model fitting.
+    priors <- c(
+      set_prior("normal(10, 5)", class = "Intercept", resp = "bio1"),
+      set_prior("normal(1000, 400)", class = "Intercept", resp = "bio12", lb = 0))
+    
+    #Fit the model.
+    model_phylo <- brm(
+      multi_formula,
+      data = filtered_data,
+      prior = priors,
+      cores = cores,
+      chains = chains,
+      threads = threading(threads),
+      iter = iter,
+      warmup = warmup,
+      data2 = list(A = A),
+      control = c(max_treedepth = 12, adapt_delta = 0.99),
+      backend = "cmdstanr",
+    )
+    
+    #Save the model to the output directory.
+    saveRDS(model_phylo,
+      paste0(niche_centers_output, model_name, ".RData"))
+    
+}
+  
+  #If the genus being fitted is monospecific:
+  if (length(unique(filtered_data$species)) <= 1) {
+    
+    #Specify the niche model formulas, including weights proportional to sampling effort required to obtain each occurrence point. Since the genus is monospecific,     we do not include a species-level random intercept with phylogenetic variance covariance matrix.
+    formula1 <- bf(bio1 | weights(x = weights) ~ 1, family = gaussian())
+    formula2 <- bf(bio12 | weights(x = weights) ~ 1, family = Gamma(link = "identity"))
+
+    multi_formula <- mvbrmsformula(formula1, formula2, rescor = FALSE)
+
+    #Include very broad priors of the genus-level intercepts to help with model fitting.
+    priors <- c(
+      set_prior("normal(10, 5)", class = "Intercept", resp = "bio1"),
+      set_prior("normal(1000, 400)", class = "Intercept", resp = "bio12", lb = 0))
+      
+    #Fit the model.
+    model_simple <- brm(
+      multi_formula,
+      data = filtered_data,
+      prior = priors,
+      cores = cores,
+      chains = chains,
+      threads = threading(threads),
+      iter = iter,
+      warmup = warmup,
+      control = c(max_treedepth = 12, adapt_delta = 0.99),
+      backend = "cmdstanr"
+    )
+    
+    #Save the model to the output directory.
+    saveRDS(model_simple,
+            paste0(niche_centers_output, gsub(" ", "_", model_name), ".RData"))
+    }
+  }
+
+```
+
+Fit PGLMMs of niche limits.
+```{r}
+
+for(g in 1:length(all_models)) {
+  model_name <- all_models[[g]]
+  print(model_name)
+  print(g)
+
+  #Holocene regional tree flora (estimated using native species from WCE within extant genera only)
+  if (grepl("_na$", model_name)) {
+    filtered_data <- dplyr::filter(occurrences, occurrences$genus2 == !!model_name)
+    filtered_data <- filtered_data[sample(nrow(filtered_data)), ]
+    filtered_data <- na.omit(filtered_data)
+  }
+  
+  #Extant and regionally extinct genera (estimated using all tree species globally)
+  if (!grepl("_na$", model_name)) {
+    filtered_data <- dplyr::filter(occurrences, occurrences$genus == !!model_name)
+    filtered_data <- filtered_data[sample(nrow(filtered_data)), ]
+    filtered_data <- na.omit(filtered_data)
+  }
+  
+  
+  if (nrow(filtered_data) == 0) {
+    print("Skipping due to no data.")
+    next
+  }
+  
+  genus_true_name <- unique(filtered_data$genus)
+  
+  #If the genus being fitted contains more than 1 species:
+  if (length(unique(filtered_data$species)) > 1) {
+    
+    #Load in the corresponding phylogenetic tree and calculate the variance covariance matrix.
+    tree_name <- paste0("tree_", genus_true_name, ".nex")
+    phylo <- ape::read.nexus(paste0(tree_path, tree_name))
+    
+    A <- ape::vcv.phylo(phylo)
+    colnames(A) <- gsub("_", " ", colnames(A))
+    rownames(A) <- gsub("_", " ", rownames(A))
+    
+    #Specify the niche model formulas, including weights proportional to sampling effort required to obtain each occurrence point and the phylogenetic variance         covariance matrix.    
+    formula1 <- bf(bio5 | weights(x = weights) ~ 1 + (1 | gr(species, cov = A)), family = gaussian())
+    formula2 <- bf(bio6 | weights(x = weights) ~ 1 + (1 | gr(species, cov = A)), family = gaussian())
+    
+    multi_formula <- mvbrmsformula(formula1, formula2, rescor = FALSE)
+
+    #Include very broad priors of the genus-level intercepts to help with model fitting.
+    priors <- c(
+      set_prior("normal(25, 5)", class = "Intercept", resp = "bio5"),
+      set_prior("normal(5, 5)", class = "Intercept", resp = "bio6"))
+    
+    #Fit the model.
+    model_phylo <- brm(
+      multi_formula,
+      data = filtered_data,
+      prior = priors,
+      cores = cores,
+      chains = chains,
+      threads = threading(threads),
+      iter = iter,
+      warmup = warmup,
+      data2 = list(A = A),
+      control = c(max_treedepth = 12, adapt_delta = 0.99),
+      backend = "cmdstanr",
+    )
+    
+    #Save the model to the output directory.
+    saveRDS(model_phylo,
+      paste0(niche_limits_output, model_name, ".RData"))
+    
+}
+  
+  #If the genus being fitted is monospecific:
+  if (length(unique(filtered_data$species)) <= 1) {
+    
+    #Specify the niche model formulas, including weights proportional to sampling effort required to obtain each occurrence point. Since the genus is monospecific,     we do not include a species-level random intercept with phylogenetic variance covariance matrix.
+    formula1 <- bf(bio5 | weights(x = weights) ~ 1, family = gaussian())
+    formula2 <- bf(bio6 | weights(x = weights) ~ 1, family = gaussian())
+
+    multi_formula <- mvbrmsformula(formula1, formula2, rescor = FALSE)
+
+    #Include very broad priors of the genus-level intercepts to help with model fitting.
+    priors <- c(
+      set_prior("normal(25, 5)", class = "Intercept", resp = "bio5"),
+      set_prior("normal(5, 5)", class = "Intercept", resp = "bio6"))
+        
+    #Fit the model.
+    model_simple <- brm(
+      multi_formula,
+      data = filtered_data,
+      prior = priors,
+      cores = cores,
+      chains = chains,
+      threads = threading(threads),
+      iter = iter,
+      warmup = warmup,
+      control = c(max_treedepth = 12, adapt_delta = 0.99),
+      backend = "cmdstanr"
+    )
+    
+    #Save the model to the output directory.
+    saveRDS(model_simple,
+            paste0(niche_limits_output, gsub(" ", "_", model_name), ".RData"))
+    }
+  }
+
+```

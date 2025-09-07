@@ -1,0 +1,121 @@
+---
+title: "Compile occurrence data, calculate sampling weights, and generate phylogenies"
+output:
+  html_document:
+    df_print: paged
+---
+
+Load in necessary libraries.
+```{r, eval = FALSE}
+library(dplyr)
+library(data.table)
+library(stringr)
+library(sampbias)
+library(here)
+library(terra)
+library(U.PhyloMaker)
+```
+
+Loop through tree genera to create a single dataframe where all occurrence data is stored.
+```{r, eval = FALSE}
+#Path where the filtered/thinned occurrence data is stored (output path from 2b_occurrence_filtering).
+output_path <- here("./data/data_2/occurrence_data_filtered/")
+
+all_genus_files <- list.files(path = output_path, full.names = FALSE)
+all_genera <- sub("\\.csv$", "", basename(all_genus_files))
+
+all_occurrences <- data.frame()
+
+for(g in 1:length(all_genera)){
+  
+  all_occurrences_genus <- data.frame()  
+  
+  genus_name <- all_genera[[g]]
+  genus_file <- all_genus_files[[g]]
+  print(genus_name)
+  
+  genus_data <- fread(file.path(output_path, genus_file))
+  genus_data$genus <- word(genus_data$species, 1)
+  
+  genus_data <- filter(genus_data, genus_data$genus == !!genus_name)
+  
+  species_list <- unique(genus_data$species)
+  
+  for(s in 1:length(species_list)){
+    
+    species_name <- species_list[[s]]
+    print(species_name)
+    print(paste0(s, "/", length(species_list)))
+    
+    species_data <- filter(genus_data, genus_data$species == !!species_name)
+    
+    all_occurrences_genus <- rbind(all_occurrences_genus, species_data)
+    
+  }
+  
+  all_occurrences <- rbind(all_occurrences, all_occurrences_genus)
+  
+}
+
+all_occurrences <- all_occurrences[,-1]
+
+#write.csv(all_occurrences, here("./data/data_2/occurrences.csv"))
+
+```
+
+Calculate weights based on estimated sampling effort using the "sampbias" R package. We use the roads+airports+waterbodies+cities layer and standardize the values from 0 - 1. Weights are extracted for each occurrence point along with climate data in a following step.
+```{r, eval = FALSE}
+#all_occurrences <- read.csv(here("./data/data_2/occurrences.csv"))
+
+#Calculate sampling bias for all species occurrence data at once, as recommended by Zizka et al. (2020).
+bias.out <- calculate_bias(x = all_occurrences, terrestrial = TRUE, res = 0.25, verbose = TRUE)
+
+proj <- project_bias(bias.out)
+#writeRaster(proj, here("./data/data_2/sampbias_0_25deg.tif"))
+map_bias(proj, type = "sampling_rate", sealine = F)
+
+layer <- proj[["roads+airports+waterbodies+cities"]]
+
+#Standardize on a scale of 0 - 1, where areas closer to 1 are weighted up due to poor sampling coverage and areas closer to zero are weighted down due to overrepresentation.
+weights <- (layer - minmax(layer)[1]) / (minmax(layer)[2] - minmax(layer)[1])
+weights <- 1 - weights
+plot(weights)
+
+#writeRaster(weights, here("./data/data_2/weights_0_25deg.tif"))
+```
+
+Generate phylogenies for all genera included in this study using "U.PhyloMaker". We used the GBOT.extended.WCVP.tre megatree and corresponding plant_genus_list.csv (both available at https://github.com/megatrees/), since we standardized to WCVP. Under scenario = 3, if species are not included in the megatree, they are bound to the basal node of each genus as polytomies. 
+```{r, eval = FALSE}
+#Combine all_occurrences with taxonomic information from trees_final
+all_occurrences <- merge(all_occurrences, trees_final[,-2], by = "species")
+all_genera <- unique(all_occurrences$genus)
+
+#Load in megatree and corresponding plant_genus_list.csv
+megatree <-read.tree(here("./data/data_2/GBOTB.extended.WCVP.tre"))
+plant_genus_list <- read.csv(here("./data/data_2/plant_genus_list.csv"))
+
+#Specify output path where to save the phylogenies as .nex files.
+tree_output_path <- here("./data/data_2/trees/")
+
+#Loop through all genera to generate phylogenies and save them as .nex files. 
+for(g in 1:length(all_genera)) {
+genus_name <- all_genera[[g]]
+  print(paste0("Iteration: ", g, ", Genus: ", genus_name))
+  filtered_data <- dplyr::filter(all_occurrences,
+                                 all_occurrences$genus == !!genus_name)
+
+  species_list <- select(filtered_data, species, genus, family)
+  species_list <- distinct(species_list)
+
+tree <- U.PhyloMaker::phylo.maker(sp.list = species_list, tree = megatree, nodes.type = 1, scenario = 3, gen.list = plant_genus_list, output.sp.list = FALSE)
+if(length(tree) == 5){
+  write.nexus(tree, file = paste0(tree_output_path,"tree_", genus_name, ".nex"))
+}
+
+if(length(tree) == 1){
+  write.nexus(tree$phylo, file = paste0(tree_output_path,"tree_", genus_name, ".nex"))
+}
+
+}
+
+```
