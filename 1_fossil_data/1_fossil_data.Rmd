@@ -51,6 +51,7 @@ trees <- read.csv(here("./data/data_1/trees_checked.csv"))
 trees <- trees[,-c(1,2)]
 
 ###If standardization has not yet been done:
+#To download the GlobalTreeSearch database checklist: https://tools.bgci.org/global_tree_search.php
 # trees <- read.csv(here("./data/data_1/global_tree_search_trees_1_8.csv"))
 # 
 #Load in taxonomic backbone for WCVP, which is main basis for GBIF (occurrence data) and BGCI (tree species list). See documentation for U.Taxonstand to download this data.
