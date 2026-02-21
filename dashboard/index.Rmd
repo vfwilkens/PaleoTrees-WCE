@@ -1,0 +1,1076 @@
+---
+title: "PaleoTrees WCE"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: spacelab
+    self_contained: false
+    lib_dir: libs
+    navbar:
+      - { title: "GitHub", href: "https://github.com/", align: right, icon: "fa-github" }
+---
+
+<style>
+/* ============================================================
+   PALEOTREES WCE DASHBOARD — STYLESHEET
+   Design: Academic / scientific journal quality
+   ============================================================ */
+
+/* --- Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+/* --- Root Design Tokens --- */
+:root {
+  --navy-900:          #0f172a;
+  --navy-800:          #1e293b;
+  --navy-700:          #334155;
+  --slate-400:         #94a3b8;
+  --slate-300:         #cbd5e1;
+  --slate-200:         #e2e8f0;
+  --slate-100:         #f1f5f9;
+  --body-bg:           #fafaf8;
+  --card-bg:           #ffffff;
+  --text-base:         #1e293b;
+  --text-muted:        #64748b;
+  --accent-amber:      #d97706;
+  --accent-teal:       #0e7490;
+  --accent-teal-light: #e0f2fe;
+  --radius:            10px;
+  --font-base:         'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* --- Base Body --- */
+body {
+  font-family: var(--font-base) !important;
+  background-color: var(--body-bg);
+  color: var(--text-base);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Navbar: Dark Gray --- */
+.navbar, .navbar-inverse {
+  background-color: #575757 !important;
+  background-image: none !important;
+  border-bottom: none !important;
+  border-color: #575757 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  min-height: 56px;
+}
+.navbar-brand {
+  font-family: var(--font-base);
+  font-weight: 700;
+  font-size: 1.8rem;
+  color: #ffffff !important;
+  letter-spacing: 0.02em;
+  padding-top: 10px;
+  text-transform: none;
+}
+.navbar-inverse .navbar-nav > li > a {
+  color: var(--slate-300) !important;
+  font-family: var(--font-base);
+  font-weight: 500;
+  font-size: 1.3rem;
+  letter-spacing: 0.01em;
+  padding-top: 14px;
+  padding-bottom: 16px;
+  transition: color 0.15s ease;
+}
+.navbar-inverse .navbar-nav > li > a:hover {
+  color: #ffffff !important;
+  background-color: rgba(255,255,255,0.07) !important;
+}
+/* Active tab: amber underline */
+.navbar-inverse .navbar-nav > .active > a,
+.navbar-inverse .navbar-nav > .active > a:hover,
+.navbar-inverse .navbar-nav > .active > a:focus {
+  color: #ffffff !important;
+  background-color: transparent !important;
+  border-bottom: 3px solid var(--accent-amber) !important;
+  font-weight: 600;
+}
+
+/* --- Dashboard Card Wrapper --- */
+.chart-wrapper {
+  background: var(--card-bg);
+  border: 1px solid var(--slate-200);
+  border-left: 4px solid #575757;
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.04),
+    0 1px 2px rgba(0,0,0,0.03);
+  padding: 18px 20px 16px 20px;
+  margin-bottom: 20px;
+  transition: box-shadow 0.2s ease;
+}
+.chart-wrapper:hover {
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.07),
+    0 2px 4px rgba(0,0,0,0.04);
+}
+
+/* --- Chart / Panel Titles --- */
+.chart-title {
+  font-family: var(--font-base);
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--navy-800);
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--slate-200);
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+  line-height: 1.3;
+}
+
+/* ============================================================
+   DATATABLES OVERRIDES
+   ============================================================ */
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_processing,
+.dataTables_wrapper .dataTables_paginate {
+  font-family: var(--font-base);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+  padding: 4px 0;
+}
+
+/* Search input */
+.dataTables_wrapper .dataTables_filter input {
+  border: 1px solid var(--slate-300);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-family: var(--font-base);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.dataTables_wrapper .dataTables_filter input:focus {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(14,116,144,0.12);
+}
+
+/* Length select */
+.dataTables_wrapper .dataTables_length select {
+  border: 1px solid var(--slate-300);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  font-family: var(--font-base);
+}
+
+/* Column filter row inputs */
+.dataTables_wrapper thead tr.dt-filterRow input,
+.dataTables_wrapper thead tr.dt-filterRow select {
+  border: 1px solid var(--slate-300);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 0.75rem;
+  font-family: var(--font-base);
+  width: 100%;
+  box-sizing: border-box;
+}
+.dataTables_wrapper thead tr.dt-filterRow input:focus,
+.dataTables_wrapper thead tr.dt-filterRow select:focus {
+  outline: none;
+  border-color: var(--accent-teal);
+}
+
+/* Table header cells */
+table.dataTable thead th,
+table.dataTable thead td {
+  font-family: var(--font-base);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--navy-800);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background-color: var(--slate-100);
+  border-bottom: 2px solid var(--slate-300) !important;
+  padding: 9px 12px;
+  white-space: nowrap;
+}
+
+/* Table body rows */
+table.dataTable tbody tr {
+  font-size: 0.8rem;
+  font-family: var(--font-base);
+  transition: background-color 0.1s ease;
+}
+table.dataTable tbody tr:hover {
+  background-color: var(--accent-teal-light) !important;
+}
+table.dataTable tbody tr.odd  { background-color: var(--body-bg); }
+table.dataTable tbody tr.even { background-color: #ffffff; }
+table.dataTable tbody td {
+  padding: 7px 12px;
+  border-top: 1px solid var(--slate-100);
+  color: var(--text-base);
+  vertical-align: middle;
+}
+table.dataTable.no-footer {
+  border-bottom: 2px solid var(--slate-200);
+}
+
+/* Pagination buttons */
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  font-family: var(--font-base) !important;
+  font-size: 0.8rem !important;
+  border-radius: 5px !important;
+  padding: 3px 8px !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background: var(--navy-800) !important;
+  color: #ffffff !important;
+  border-color: var(--navy-800) !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: var(--slate-100) !important;
+  color: var(--navy-800) !important;
+  border-color: var(--slate-300) !important;
+}
+
+/* ============================================================
+   SCROLLBAR (Webkit: Chrome, Safari, Edge)
+   ============================================================ */
+::-webkit-scrollbar           { width: 7px; height: 7px; }
+::-webkit-scrollbar-track     { background: var(--slate-100); border-radius: 4px; }
+::-webkit-scrollbar-thumb     { background: var(--slate-400); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--navy-700); }
+.dataTables_scrollBody::-webkit-scrollbar        { width: 6px; height: 6px; }
+.dataTables_scrollBody::-webkit-scrollbar-thumb  { background: var(--slate-400); border-radius: 3px; }
+
+/* ============================================================
+   PLOTLY STYLING
+   ============================================================ */
+.plotly .hovertext text,
+.plotly .hovertext {
+  font-family: var(--font-base) !important;
+  font-size: 12px !important;
+}
+.modebar                    { background: transparent !important; }
+.modebar-btn path           { fill: var(--slate-400) !important; }
+.modebar-btn:hover path     { fill: var(--navy-800) !important; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+/* --- Download Button --- */
+.btn-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #575757;
+  color: #ffffff;
+  font-family: var(--font-base);
+  font-weight: 500;
+  font-size: 0.82rem;
+  padding: 7px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+}
+.btn-download:hover {
+  background-color: #6e6e6e;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+/* --- Legend badge for data table --- */
+.legend-badge {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+
+@media (max-width: 768px) {
+  .chart-wrapper { padding: 12px 14px; border-radius: 8px; }
+  .chart-title   { font-size: 0.95rem; }
+  .navbar-brand  { font-size: 1rem; }
+}
+</style>
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(here)
+library(brms)
+library(readxl)
+library(DT)
+library(terra)
+library(reshape2)
+
+# Set up paths relative to the project root
+knitr::opts_knit$set(root.dir = here::here())
+
+# ── PaleoTrees shared ggplot2 theme ──────────────────────────────────────────
+theme_paleotrees <- function(base_size = 11) {
+    theme_minimal(base_size = base_size) %+replace%
+        theme(
+            plot.background = element_rect(fill = "#ffffff", colour = NA),
+            panel.background = element_rect(fill = "#ffffff", colour = NA),
+            panel.grid.major.x = element_blank(),
+            panel.grid.major.y = element_line(colour = "#e2e8f0", linewidth = 0.4),
+            panel.grid.minor = element_blank(),
+            axis.title = element_text(size = base_size * 0.9, colour = "#334155", face = "plain"),
+            axis.text = element_text(size = base_size * 0.82, colour = "#64748b"),
+            axis.text.x = element_text(size = base_size * 0.82, colour = "#64748b", margin = margin(t = 3)),
+            axis.text.y = element_text(size = base_size * 0.75, colour = "#64748b", margin = margin(r = 4)),
+            axis.ticks = element_line(colour = "#cbd5e1", linewidth = 0.35),
+            axis.ticks.length = unit(3, "pt"),
+            axis.line = element_blank(),
+            legend.title = element_text(size = base_size * 0.88, colour = "#1e293b", face = "bold"),
+            legend.text = element_text(size = base_size * 0.82, colour = "#334155"),
+            legend.key = element_rect(fill = NA, colour = NA),
+            legend.key.size = unit(12, "pt"),
+            legend.position = "right",
+            legend.background = element_rect(fill = NA, colour = NA),
+            plot.title = element_text(size = base_size * 1.15, colour = "#0f172a", face = "bold", hjust = 0, margin = margin(b = 6)),
+            plot.subtitle = element_text(size = base_size * 0.92, colour = "#64748b", hjust = 0, margin = margin(b = 10)),
+            plot.margin = margin(t = 8, r = 12, b = 8, l = 8)
+        )
+}
+```
+
+```{r global_data, include=FALSE}
+# 1. Load common datasets
+dataset_final <- read_xlsx(here("data/data_1/dataset_final_12_02_26.xlsx"))
+native_genera <- read.csv(here("data/data_1/native_genera.csv"))[, -1]
+native_species <- read.csv(here("data/data_1/native_species.csv"))[, -1]
+trees_final <- read.csv(here("data/data_1/trees_final.csv"))
+
+# 2. Colors
+colors_periods <- c(
+    "Holocene" = "#DCE8E9",
+    "Eem" = "#CBF5FC",
+    "Holstein" = "#B4E2E3",
+    "Cromer" = "#99D9DD",
+    "Waal" = "#7FC5DD",
+    "Tegelen" = "#4FB3D4",
+    "Pleistocene" = "#99d9dd",
+    "Pliocene" = "#FFF6B2",
+    "Miocene" = "#FFEB3D",
+    "Oligocene" = "#FFC694",
+    "Eocene" = "#FFBC87",
+    "Paleocene" = "#FB9A66",
+    "Unknown" = "#cccccc"
+)
+cat_colors <- c("Extant genera" = "#FFD579", "Holocene regional tree flora" = "#237B55", "Regionally extinct genera" = "#69A0C9")
+
+# ── Shared Plotly style objects ───────────────────────────────────────────────
+plotly_font <- list(
+    family = "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    size   = 12,
+    color  = "#334155"
+)
+plotly_axis_style <- list(
+    tickfont  = list(family = "Inter, sans-serif", size = 11, color = "#64748b"),
+    titlefont = list(family = "Inter, sans-serif", size = 12, color = "#334155"),
+    gridcolor = "#e2e8f0",
+    gridwidth = 0.5,
+    linecolor = "#cbd5e1",
+    linewidth = 1,
+    zeroline  = FALSE,
+    showline  = FALSE
+)
+plotly_layout_base <- list(
+    font = plotly_font,
+    paper_bgcolor = "#ffffff",
+    plot_bgcolor = "#ffffff",
+    hoverlabel = list(
+        bgcolor = "#1e293b",
+        bordercolor = "#0f172a",
+        font = list(family = "Inter, sans-serif", size = 12, color = "#ffffff")
+    ),
+    legend = list(
+        font        = list(family = "Inter, sans-serif", size = 11, color = "#334155"),
+        bgcolor     = "rgba(255,255,255,0.92)",
+        bordercolor = "#e2e8f0",
+        borderwidth = 1
+    )
+)
+```
+
+Niche Models {data-icon="fa-chart-area"}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Climatic niche centers
+
+<details style="margin-bottom: 10px; font-size: 12px; font-family: 'Inter', sans-serif;">
+<summary style="cursor: pointer; font-weight: 500; color: #3b82f6; display: inline-block; padding: 4px 8px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;"><i class="fa fa-info-circle"></i> Explanation</summary>
+<div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; line-height: 1.5;">
+**Average locations in climate space of Cenozoic tree genera from Western and Central Europe.** Estimated climatic centers of 200 tree genera, comparing regionally extinct genera (blue) and extant genera (yellow). Climatic centers of the Holocene regional tree flora (green), comprising the same genera as in extant genera but modelled using only native species, were also estimated. Hover over a genus to find more information. The Gelman-Rubin criterion (<em>R&#770;</em>) was used to assess Bayesian model convergence, with values closer to 1.0 indicating successful convergence. Current and future climate scenarios for Western and Central Europe have been underlaid, with each square representing a projected 625 km² (25 x 25 km) terrestrial grid cell. Current climate: 1981 – 2010. Moderate warming: SSP1-2.6 (+ 1.3 – 2.4 &deg;C by 2100). Severe warming: SSP5-8.5 (+ 3.3 – 5.7 &deg;C by 2100). Switch to last occurrence to see the timing of the last known fossil occurrence of each genus in Western and Central Europe. Point size scales with the number of accepted tree species within each genus.
+<div style="text-align: center; margin-top: 12px;"><img src="stratigraphy.svg" alt="Stratigraphic chart" style="max-width: 80%; height: auto;"></div></div>
+</details>
+
+```{r centers_data, include=FALSE}
+# Load niche center models
+directory_path <- here("data/niche_centers")
+file_paths <- list.files(directory_path, full.names = TRUE)
+
+all_data_centers <- data.frame()
+if (length(file_paths) > 0) {
+    model_list <- lapply(file_paths, readRDS)
+    model_names <- sub(".*model_(.*)\\.RData", "\\1", basename(file_paths))
+    genus_names <- sub("_na$", "", model_names)
+
+    for (g in 1:length(genus_names)) {
+        tryCatch(
+            {
+                genus_name <- genus_names[[g]]
+                model_name <- model_names[[g]]
+                model <- model_list[[g]]
+                Rhat <- tryCatch(max(rhat(model)), error = function(e) NA)
+                species_n <- max(1, length(unique(model$data$species)))
+                para <- as_draws_df(model)
+                if (all(c("b_bio1_Intercept", "b_bio12_Intercept") %in% names(para))) {
+                    para_means <- colMeans(select(para, b_bio1_Intercept, b_bio12_Intercept))
+                    df <- data.frame(genus = genus_name, model = model_name, bio1 = para_means[1], bio12 = para_means[2], Rhat = Rhat, n = species_n)
+                    all_data_centers <- rbind(all_data_centers, df)
+                }
+            },
+            error = function(e) {
+                return(NULL)
+            }
+        )
+    }
+}
+
+if (nrow(all_data_centers) > 0) {
+    all_data_centers$category <- ifelse(all_data_centers$genus %in% native_species | grepl("_na$", all_data_centers$model), "Holocene regional tree flora",
+        ifelse(all_data_centers$genus %in% native_genera, "Extant genera", "Regionally extinct genera")
+    )
+
+    paleotrees_adj <- dataset_final
+    paleotrees_adj$last_presence <- apply(paleotrees_adj[, -1], 1, function(x) {
+        if (any(x == 1)) names(x)[max(which(x == 1))] else NA
+    })
+
+    all_data_centers <- merge(all_data_centers, paleotrees_adj[, c(1, 13)], by = "genus")
+    all_data_centers$last_presence_group <- ifelse(all_data_centers$last_presence %in% c("Eem", "Tegelen", "Waal", "Cromer", "Holstein"), "Pleistocene", all_data_centers$last_presence)
+
+    n_max <- max(all_data_centers$n, na.rm = TRUE)
+    all_data_centers$scaled_size <- 7 + 15 * sqrt(all_data_centers$n / n_max)
+
+    all_data_centers$hover_text <- paste(
+        "<b>Genus:</b>", all_data_centers$genus,
+        "<br><b>Status:</b>", all_data_centers$category,
+        "<br><b>Tree species count:</b>", all_data_centers$n,
+        "<br><b>Last occurrence:</b>", all_data_centers$last_presence,
+        "<br><b>MAT:</b>", round(all_data_centers$bio1, 2), " &deg;C",
+        "<br><b>AP:</b>", round(all_data_centers$bio12, 0), " mm",
+        "<br><b>R&#770;:</b>", sprintf("%.2f", all_data_centers$Rhat)
+    )
+}
+
+bg_data <- data.frame()
+try(
+    {
+        process_raster_robust <- function(path, label) {
+            if (file.exists(path)) {
+                r <- rast(path)
+                b1_idx <- grep("bio1_", names(r))
+                if (length(b1_idx) == 0) b1_idx <- grep("bio1$", names(r))
+                b12_idx <- grep("bio12_", names(r))
+                if (length(b12_idx) == 0) b12_idx <- grep("bio12$", names(r))
+                b5_idx <- grep("bio5_", names(r))
+                if (length(b5_idx) == 0) b5_idx <- grep("bio5$", names(r))
+                b6_idx <- grep("bio6_", names(r))
+                if (length(b6_idx) == 0) b6_idx <- grep("bio6$", names(r))
+
+                if (length(b1_idx) > 0 && length(b12_idx) > 0 && length(b5_idx) > 0 && length(b6_idx) > 0) {
+                    r_sub <- r[[c(b1_idx[1], b12_idx[1], b5_idx[1], b6_idx[1])]]
+                    r_small <- aggregate(r_sub, fact = 2, fun = mean)
+                    df <- as.data.frame(r_small, xy = TRUE)
+                    colnames(df) <- c("x", "y", "bio1", "bio12", "bio5", "bio6")
+                    df <- df %>% mutate(group = label)
+                    return(df)
+                }
+            }
+            return(NULL)
+        }
+        bg_data <- rbind(
+            process_raster_robust(here("data/data_2/bioclim_current_0_25deg.tif"), "Current"),
+            process_raster_robust(here("data/data_2/bioclim_ssp126_0_25deg.tif"), "SSP126"),
+            process_raster_robust(here("data/data_2/bioclim_ssp585_0_25deg.tif"), "SSP585")
+        ) %>% na.omit()
+    },
+    silent = TRUE
+)
+```
+
+```{r plot_centers}
+if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
+    plot_data <- all_data_centers %>% filter((is.na(Rhat) | Rhat <= 1.05))
+    # Widened filters to ensure Paleocene (potentially warmer/wetter) is included
+    plot_data <- plot_data %>% filter(bio1 >= 0 & bio1 <= 35 & bio12 >= 400 & bio12 <= 3000)
+
+    fig <- plot_ly() # Let flexdashboard handle height in 'fill' mode
+
+    if (nrow(bg_data) > 0) {
+        scenarios <- unique(bg_data$group)
+        cols_scen <- c("Current" = "#909090", "SSP126" = "#FF9538", "SSP585" = "#EB0000")
+        for (scen in scenarios) {
+            sub <- bg_data[bg_data$group == scen, ] %>% filter(bio1 >= 0 & bio1 <= 35 & bio12 >= 400 & bio12 <= 3000)
+            fig <- fig %>% add_trace(
+                data = sub, x = ~bio1, y = ~bio12, type = "scatter", mode = "markers",
+                marker = list(color = cols_scen[scen], size = 6, opacity = 0.15, symbol = "square"), # Squares
+                name = scen, visible = TRUE, showlegend = TRUE, hoverinfo = "none" # Always visible
+            )
+        }
+    }
+
+    marker_defaults <- list(sizemode = "diameter", line = list(width = 1, color = "black"))
+
+    plot_data$symbol_shape <- ifelse(plot_data$category == "Holocene regional tree flora", "triangle-up", "circle")
+
+    cats <- unique(plot_data$category)
+    for (cat in cats) {
+        sub <- plot_data[plot_data$category == cat, ]
+        marker_symbol <- unique(sub$symbol_shape) # Since we filter by category, this is uniform
+
+        fig <- fig %>% add_trace(
+            data = sub, x = ~bio1, y = ~bio12, text = ~hover_text, hoverinfo = "text",
+            type = "scatter", mode = "markers", name = cat,
+            marker = c(list(color = cat_colors[cat], size = sub$scaled_size, opacity = 0.9, symbol = marker_symbol), marker_defaults),
+            visible = TRUE
+        )
+    }
+
+    lps <- unique(plot_data$last_presence_group)
+    # Order chronologically (names(colors_periods) is defined order: Holocene -> Paleocene)
+    lps <- lps[order(match(lps, names(colors_periods)))]
+
+    for (lp in lps) {
+        sub <- plot_data[plot_data$last_presence_group == lp, ]
+        col <- colors_periods[lp]
+        if (is.na(col)) col <- "gray"
+        fig <- fig %>% add_trace(
+            data = sub, x = ~bio1, y = ~bio12, text = ~hover_text, hoverinfo = "text",
+            type = "scatter", mode = "markers", name = lp,
+            marker = c(list(color = col, size = sub$scaled_size, opacity = 0.9, symbol = ~symbol_shape), marker_defaults),
+            visible = FALSE
+        )
+    }
+
+    # Strict Limits, No Scaleanchor (FIX for Iteration 19)
+    fig <- fig %>%
+        layout(
+            font = plotly_font,
+            paper_bgcolor = "#ffffff",
+            plot_bgcolor = "#ffffff",
+            hoverlabel = plotly_layout_base$hoverlabel,
+            xaxis = modifyList(plotly_axis_style, list(
+                title = list(
+                    text = "Mean annual temperature [\u00B0C]",
+                    font = list(size = 15, color = "#334155"),
+                    standoff = 20
+                ),
+                showgrid = FALSE,
+                zeroline = FALSE,
+                range = c(0, 35),
+                tickfont = list(size = 14),
+                constrain = "domain",
+                showline = TRUE,
+                linewidth = 1,
+                linecolor = "black",
+                mirror = TRUE,
+                ticks = "outside",
+                tickcolor = "black"
+            )),
+            yaxis = modifyList(plotly_axis_style, list(
+                title = list(
+                    text = "Annual precipitation [mm]",
+                    font = list(size = 15, color = "#334155")
+                ),
+                showgrid = FALSE,
+                gridcolor = "#e2e8f0",
+                zeroline = FALSE,
+                range = c(400, 3000),
+                tickfont = list(size = 14),
+                constrain = "domain",
+                showline = TRUE,
+                linewidth = 1,
+                linecolor = "black",
+                mirror = TRUE,
+                ticks = "outside",
+                tickcolor = "black"
+            )),
+            legend = list(
+                x           = 0.02,
+                y           = 0.98,
+                xanchor     = "left",
+                font        = list(family = "Inter, sans-serif", size = 11, color = "#334155"),
+                bgcolor     = "rgba(255,255,255,0.8)",
+                bordercolor = "#e2e8f0",
+                borderwidth = 1
+            ),
+            margin = list(l = 60, r = 20, t = 40, b = 100), # Increased bottom margin for labels
+            updatemenus = list(list(
+                type = "buttons",
+                direction = "right",
+                x = 0.5,
+                xanchor = "center",
+                y = 1.1,
+                bgcolor = "#f1f5f9",
+                bordercolor = "#cbd5e1",
+                font = list(family = "Inter, sans-serif", size = 12, color = "#1e293b"),
+                buttons = list(
+                    list(
+                        method = "restyle",
+                        # Args: rep(TRUE, 3) keeps climate scenarios visible. Then toggle cats/lps.
+                        args   = list("visible", c(rep(TRUE, 3), rep(TRUE, length(cats)), rep(FALSE, length(lps)))),
+                        label  = "Status"
+                    ),
+                    list(
+                        method = "restyle",
+                        args   = list("visible", c(rep(TRUE, 3), rep(FALSE, length(cats)), rep(TRUE, length(lps)))),
+                        label  = "Last occurrence"
+                    )
+                )
+            ))
+        ) %>%
+        config(displayModeBar = TRUE, modeBarButtonsToRemove = list("select2d", "lasso2d"), displaylogo = FALSE)
+    fig
+}
+```
+
+### Thermal niche limits
+
+<details style="margin-bottom: 10px; font-size: 12px; font-family: 'Inter', sans-serif;">
+<summary style="cursor: pointer; font-weight: 500; color: #3b82f6; display: inline-block; padding: 4px 8px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;"><i class="fa fa-info-circle"></i> Explanation</summary>
+<div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; line-height: 1.5;">
+**Upper and lower thermal limits of Cenozoic tree genera from Western and Central Europe.** Posteriors of upper and lower thermal limits for 200 tree genera were estimated, comparing regionally extinct genera (blue) and extant genera (yellow). Posteriors of genus-level thermal limits of the Holocene regional tree flora (green) were also estimated, comprising the same genera as in extant genera but modelled using only native species. Models were arranged by increasing upper thermal limit (bottom to top). Color stripes correspond to the last known occurrence of each genus in the fossil record of Western and Central Europe. Hover over a genus to find more information. The Gelman-Rubin criterion (<em>R&#770;</em>) was used to assess Bayesian model convergence, with values closer to 1.0 indicating successful convergence. The distribution of heat and cold extremes (mean daily maximum temperature of the warmest month and mean daily minimum temperature of the coldest month) by land area under current and future climate scenarios in Western and Central Europe is overlaid. Current climate: 1981 – 2010. Moderate warming: SSP1-2.6 (+ 1.3 – 2.4 &deg;C by 2100). Severe warming: SSP5-8.5 (+ 3.3 – 5.7 &deg;C by 2100).
+<div style="text-align: center; margin-top: 12px;"><img src="stratigraphy.svg" alt="Stratigraphic chart" style="max-width: 80%; height: auto;"></div></div>
+</details>
+
+```{r limits_data_refined, include=FALSE}
+directory_path_limits <- here("data/niche_limits")
+file_paths_limits <- list.files(directory_path_limits, full.names = TRUE)
+
+all_data_limits_densities <- data.frame()
+medians_segments <- data.frame()
+ordered_models <- c()
+
+if (length(file_paths_limits) > 0) {
+    model_list_limits <- lapply(file_paths_limits, readRDS)
+    model_names_limits <- sub(".*model_(.*)\\.RData", "\\1", basename(file_paths_limits))
+
+    medians_df <- data.frame()
+    for (g in 1:length(model_list_limits)) {
+        try(
+            {
+                para <- as_draws_df(model_list_limits[[g]])
+                if (all(c("b_bio5_Intercept", "b_bio6_Intercept") %in% names(para))) {
+                    m5 <- median(para$b_bio5_Intercept)
+                    m6 <- median(para$b_bio6_Intercept)
+                    medians_df <- rbind(medians_df, data.frame(model = model_names_limits[g], m_bio5 = m5, m_bio6 = m6))
+                }
+            },
+            silent = T
+        )
+    }
+    if (nrow(medians_df) > 0) {
+        ordered_models <- medians_df %>%
+            arrange(m_bio5) %>%
+            pull(model)
+    }
+
+    for (g in 1:length(model_list_limits)) {
+        tryCatch(
+            {
+                m_name <- model_names_limits[g]
+                model <- model_list_limits[[g]]
+                para <- as_draws_df(model)
+                if (all(c("b_bio5_Intercept", "b_bio6_Intercept") %in% names(para))) {
+                    Rhat_val <- tryCatch(max(rhat(model)), error = function(e) NA)
+                    d_min <- density(para$b_bio6_Intercept)
+                    d_max <- density(para$b_bio5_Intercept)
+                    idx <- which(ordered_models == m_name)
+                    max_val <- max(c(d_min$y, d_max$y))
+                    df_min <- data.frame(x = d_min$x, y_final = (d_min$y / max_val) + idx, model = m_name, Metric = "Min Temp", Rhat = Rhat_val)
+                    df_max <- data.frame(x = d_max$x, y_final = (d_max$y / max_val) + idx, model = m_name, Metric = "Max Temp", Rhat = Rhat_val)
+                    all_data_limits_densities <- rbind(all_data_limits_densities, df_min, df_max)
+                    m5 <- median(para$b_bio5_Intercept)
+                    m6 <- median(para$b_bio6_Intercept)
+                    medians_segments <- rbind(medians_segments, data.frame(model = m_name, m6 = m6, m5 = m5, y = idx, Rhat = Rhat_val))
+                }
+            },
+            error = function(e) {
+                return(NULL)
+            }
+        )
+    }
+}
+if (nrow(all_data_limits_densities) > 0) {
+    all_data_limits_densities$label <- ifelse(grepl("_na$", all_data_limits_densities$model),
+        paste0(gsub("_na$", "", all_data_limits_densities$model), "<sub>na</sub>"), all_data_limits_densities$model
+    )
+    medians_segments$label <- ifelse(grepl("_na$", medians_segments$model),
+        paste0(gsub("_na$", "", medians_segments$model), "<sub>na</sub>"), medians_segments$model
+    )
+    all_data_limits_densities$genus <- gsub("_na$", "", all_data_limits_densities$model)
+    all_data_limits_densities$category <- ifelse(all_data_limits_densities$genus %in% native_species | grepl("_na$", all_data_limits_densities$model), "Holocene regional tree flora",
+        ifelse(all_data_limits_densities$genus %in% native_genera, "Extant genera", "Regionally extinct genera")
+    )
+    medians_segments$category <- ifelse(gsub("_na$", "", medians_segments$model) %in% native_species | grepl("_na$", medians_segments$model), "Holocene regional tree flora",
+        ifelse(gsub("_na$", "", medians_segments$model) %in% native_genera, "Extant genera", "Regionally extinct genera")
+    )
+}
+```
+
+```{r plot_limits_scrolling}
+if (nrow(all_data_limits_densities) > 0) {
+    # --- 1. Data Preparation ---
+    all_data_limits_densities <- all_data_limits_densities %>%
+        group_by(model, Metric) %>%
+        arrange(x) %>%
+        mutate(
+            y_base = min(y_final),
+            density_height = round(pmax(0, y_final - y_base) * 2.5, 3)
+        ) %>%
+        filter(density_height > 0.1 | row_number() %% 8 == 1 | row_number() == 1 | row_number() == n()) %>%
+        ungroup()
+
+    all_data_limits_densities$label <- as.character(all_data_limits_densities$label)
+
+    ord_df <- medians_segments %>%
+        select(model, label, m5, m6) %>%
+        distinct() %>%
+        group_by(model, label) %>%
+        summarize(m5 = mean(m5), m6 = mean(m6), .groups = "drop")
+
+    # Single sort order: by lower thermal limit (ascending)
+    ord_min   <- ord_df %>% arrange(m6) %>% pull(model)
+    map_y_min <- setNames(seq_along(ord_min), ord_min)
+
+    # --- 2. Calculate Ribbon Heights ---
+    all_data_limits_densities$density_height <- pmax(0, all_data_limits_densities$y_final - all_data_limits_densities$y_base)
+    all_data_limits_densities$x <- round(all_data_limits_densities$x, 2)
+
+    all_data_limits_densities$y_min_base <- map_y_min[all_data_limits_densities$model]
+    all_data_limits_densities$y_min_top  <- round(all_data_limits_densities$y_min_base + all_data_limits_densities$density_height, 3)
+
+    medians_segments$y_min <- map_y_min[medians_segments$model]
+
+    # --- 3. Merge Last Presence ---
+    if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
+        lp_map <- setNames(all_data_centers$last_presence_group, all_data_centers$model)
+        all_data_limits_densities$last_presence_group <- lp_map[all_data_limits_densities$model]
+        medians_segments$last_presence_group          <- lp_map[medians_segments$model]
+    }
+    all_data_limits_densities$last_presence_group[is.na(all_data_limits_densities$last_presence_group)] <- "Unknown"
+    medians_segments$last_presence_group[is.na(medians_segments$last_presence_group)] <- "Unknown"
+
+    # --- 4. Hover Text ---
+    all_data_limits_densities$hover_text <- paste0(
+        "<b>Genus:</b> ", all_data_limits_densities$genus, "<br>",
+        "<b>Limit:</b> ", all_data_limits_densities$x, " &deg;C<br>",
+        "<b>Status:</b> ", all_data_limits_densities$category, "<br>",
+        "<b>Last occurrence:</b> ", all_data_limits_densities$last_presence_group, "<br>",
+        "<b>R&#770;:</b> ", sprintf("%.2f", all_data_limits_densities$Rhat)
+    )
+    medians_segments$hover_text <- paste0(
+        "<b>Genus:</b> ", gsub("_na$", "", medians_segments$model), "<br>",
+        "<b>Center:</b> ", round((medians_segments$m5 + medians_segments$m6) / 2, 2), " &deg;C<br>",
+        "<b>Status:</b> ", medians_segments$category, "<br>",
+        "<b>Last occurrence:</b> ", medians_segments$last_presence_group, "<br>",
+        "<b>R&#770;:</b> ", sprintf("%.2f", medians_segments$Rhat)
+    )
+
+    labels_min <- ord_df$label[match(ord_min, ord_df$model)]
+
+    # --- Configuration ---
+    common_x_range <- c(-20, 60)
+    fixed_margins  <- list(l = 100, r = 20)
+
+    # --- Top Plot: Climate Distributions ---
+    dens_bio5 <- data.frame()
+    dens_bio6 <- data.frame()
+    if (nrow(bg_data) > 0) {
+        for (scen in c("Current", "SSP126", "SSP585")) {
+            if (scen %in% unique(bg_data$group)) {
+                d5 <- density(bg_data$bio5[bg_data$group == scen], from = common_x_range[1], to = common_x_range[2], n = 128)
+                dens_bio5 <- rbind(dens_bio5, data.frame(x = round(d5$x, 2), y = round(d5$y, 4), group = scen))
+                d6 <- density(bg_data$bio6[bg_data$group == scen], from = common_x_range[1], to = common_x_range[2], n = 128)
+                dens_bio6 <- rbind(dens_bio6, data.frame(x = round(d6$x, 2), y = round(d6$y, 4), group = scen))
+            }
+        }
+    }
+
+    p_top <- plot_ly(height = 190)
+    cols_scen           <- c("Current" = "#909090", "SSP126" = "#FF9538", "SSP585" = "#EB0000")
+    cols_scen_rgba_fill <- c("Current" = "rgba(144,144,144,0.4)", "SSP126" = "rgba(255,149,56,0.4)", "SSP585" = "rgba(235,0,0,0.4)")
+    scen_order <- c("Current", "SSP126", "SSP585")
+
+    for (s in scen_order) {
+        if (nrow(dens_bio6) > 0 && s %in% unique(dens_bio6$group)) {
+            d6 <- dens_bio6[dens_bio6$group == s, ]
+            p_top <- p_top %>% add_trace(
+                x = d6$x, y = d6$y, type = "scatter", mode = "lines", fill = "tozeroy",
+                line = list(color = cols_scen[s], width = 1.5), fillcolor = cols_scen_rgba_fill[s],
+                name = paste("Lower:", s), legendgroup = "Lower", visible = FALSE, hoverinfo = "name+x"
+            )
+        }
+    }
+    for (s in scen_order) {
+        if (nrow(dens_bio5) > 0 && s %in% unique(dens_bio5$group)) {
+            d5 <- dens_bio5[dens_bio5$group == s, ]
+            p_top <- p_top %>% add_trace(
+                x = d5$x, y = d5$y, type = "scatter", mode = "lines", fill = "tozeroy",
+                line = list(color = cols_scen[s], width = 1.5), fillcolor = cols_scen_rgba_fill[s],
+                name = paste("Upper:", s), legendgroup = "Upper", visible = TRUE, hoverinfo = "name+x"
+            )
+        }
+    }
+
+    n_s <- length(scen_order)
+    p_top <- p_top %>%
+        layout(
+            xaxis = list(title = "Temperature [\u00B0C]", range = common_x_range, fixedrange = TRUE, side = "bottom", showgrid = FALSE, zeroline = FALSE),
+            yaxis = list(showgrid = FALSE, showticklabels = FALSE, title = "", fixedrange = TRUE, zeroline = FALSE),
+            margin = c(fixed_margins, list(t = 40, b = 40)),
+            showlegend = FALSE,
+            updatemenus = list(list(
+                type = "buttons", direction = "left", x = 0.5, xanchor = "center", y = 1.45,
+                active = 1,
+                bgcolor = "#f1f5f9", bordercolor = "#cbd5e1",
+                font = list(family = "Inter, sans-serif", size = 12, color = "#1e293b"),
+                buttons = list(
+                    list(method = "restyle", args = list("visible", c(rep(TRUE, n_s), rep(FALSE, n_s))), label = "Lower"),
+                    list(method = "restyle", args = list("visible", c(rep(FALSE, n_s), rep(TRUE, n_s))), label = "Upper")
+                )
+            ))
+        ) %>%
+        config(staticPlot = FALSE, displayModeBar = FALSE)
+
+    # --- Main Plot: Niche Limits (single layer: Status coloring) ---
+    p_limits <- ggplot() +
+        geom_ribbon(
+            data = all_data_limits_densities,
+            aes(x = x, ymin = y_min_base, ymax = y_min_top,
+                group = interaction(model, Metric), fill = category, text = hover_text),
+            alpha = 0.6
+        ) +
+        geom_segment(
+            data = medians_segments,
+            aes(x = m6, xend = m5, y = y_min, yend = y_min, color = category, text = hover_text),
+            linewidth = 0.8
+        ) +
+        scale_fill_manual(values  = c(cat_colors, colors_periods)) +
+        scale_color_manual(values = c(cat_colors, colors_periods)) +
+        scale_x_continuous(limits = common_x_range) +
+        scale_y_continuous(limits = c(0.5, nrow(ord_df) + 1.5), expand = c(0, 0)) +
+        theme_paleotrees() +
+        theme(panel.grid = element_blank(), axis.text.y = element_text(size = 6), legend.position = "none")
+
+    limits_height <- max(400, nrow(ord_df) * 17)
+    p_ply <- ggplotly(p_limits, height = limits_height, tooltip = "text")
+
+    # Add last-presence colour squares as always-visible plotly traces
+    for (lp in unique(medians_segments$last_presence_group)) {
+        sub <- medians_segments[medians_segments$last_presence_group == lp, ]
+        col <- colors_periods[lp]
+        if (is.na(col)) col <- "#cccccc"
+        p_ply <- p_ply %>% add_trace(
+            x = rep(50, nrow(sub)), y = sub$y_min,
+            type = "scatter", mode = "markers",
+            marker = list(symbol = "square", size = 12, color = col, line = list(width = 0)),
+            text = paste0(gsub("_na$", "", sub$model), "<br>Last occurrence: ", sub$last_presence_group),
+            hoverinfo = "text", showlegend = FALSE, inherit = FALSE
+        )
+    }
+
+    tickvals <- seq_len(nrow(ord_df))
+
+    p_ply <- p_ply %>% layout(
+        xaxis = list(title = "", showgrid = FALSE, showline = FALSE, showticklabels = FALSE,
+                     zeroline = FALSE, range = common_x_range, fixedrange = TRUE),
+        yaxis = list(
+            title = "Genus", showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 9),
+            tickmode = "array", tickvals = tickvals, ticktext = labels_min,
+            range = c(0.5, nrow(ord_df) + 1.5)
+        ),
+        margin = c(fixed_margins, list(t = 0, b = 20))
+    )
+
+    # Wipe out any shapes to prevent grid lines or previous artifacts
+    p_ply$x$layout$shapes <- NULL
+
+    htmltools::tagList(
+        htmltools::div(style = "width: 100%; height: 190px; margin-bottom: 0px;", p_top),
+        htmltools::div(style = "width: 100%; height: calc(100vh - 210px); overflow-y: auto;", p_ply)
+    )
+}
+```
+Data {data-icon="fa-database"}
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Occurrence Dataset
+
+```{r data_tab, fig.width=12}
+# Load the dashboard dataset
+dashboard_data <- read_xlsx(here("data/data_1/dashboard_data_12_02_26.xlsx"))
+
+# Period columns (numeric occurrence data)
+period_cols <- c(
+    "Paleocene", "Eocene", "Oligocene", "Miocene", "Pliocene",
+    "Tegelen", "Waal", "Cromer", "Holstein", "Eem", "Holocene"
+)
+
+# Display labels for values (invisible text — cells are color-only)
+dashboard_data_display <- dashboard_data
+for (col in period_cols) {
+    dashboard_data_display[[col]] <- ifelse(
+        dashboard_data[[col]] == 2, "2",
+        ifelse(dashboard_data[[col]] == 1, "1", "0")
+    )
+}
+
+# Build the download button + legend HTML
+header_html <- htmltools::div(
+    style = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;",
+    htmltools::div(
+        style = "display: flex; align-items: center; gap: 16px; font-family: Inter, sans-serif; font-size: 12px; color: #475569;",
+        htmltools::span(
+            htmltools::span(class = "legend-badge", style = "background-color: #1e3a5f;"),
+            "PBDB occurrence"
+        ),
+        htmltools::span(
+            htmltools::span(class = "legend-badge", style = "background-color: #4a7fb5;"),
+            "Literature occurrence"
+        ),
+        htmltools::span(
+            htmltools::span(class = "legend-badge", style = "background-color: #f8fafc; border: 1px solid #e2e8f0;"),
+            "No occurrence"
+        )
+    ),
+    htmltools::tags$a(
+        href = "#",
+        class = "btn-download",
+        target = "_blank",
+        htmltools::tags$i(class = "fa fa-download"),
+        "Download"
+    )
+)
+
+dt <- datatable(
+    dashboard_data_display,
+    filter = "top",
+    rownames = FALSE,
+    class = "stripe hover compact cell-border",
+    options = list(
+        pageLength = -1,
+        lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")),
+        scrollY = "calc(100vh - 280px)",
+        scrollX = TRUE,
+        scrollCollapse = TRUE,
+        autoWidth = FALSE,
+        dom = "lfrtip",
+        language = list(
+            search      = "Search genera:",
+            info        = "Showing _START_ to _END_ of _TOTAL_ genera",
+            infoEmpty   = "No genera found",
+            zeroRecords = "No matching genera",
+            lengthMenu  = "Show _MENU_ genera"
+        ),
+        initComplete = JS("
+            function(settings, json) {
+                var api = this.api();
+                $(api.table().container())
+                    .css({'font-size': '12px', 'font-family': 'Inter, sans-serif'});
+                $(api.table().header())
+                    .css({'font-size': '13px', 'font-family': 'Inter, sans-serif'});
+                setTimeout(function() { api.columns.adjust(); }, 10);
+            }
+        ")
+    )
+) %>%
+    formatStyle(
+        columns = period_cols,
+        backgroundColor = styleEqual(
+            c("0", "1", "2"),
+            c("rgba(248,250,252,0.6)", "rgba(74,127,181,0.5)", "rgba(30,58,95,0.55)")
+        ),
+        color = styleEqual(
+            c("0", "1", "2"),
+            c("rgba(248,250,252,0.6)", "rgba(74,127,181,0.5)", "rgba(30,58,95,0.55)")
+        ),
+        fontSize = "1px",
+        textAlign = "center",
+        border = "1px solid #e2e8f0"
+    ) %>%
+    formatStyle(
+        columns    = "genus",
+        fontStyle  = "italic",
+        fontWeight = "600",
+        color      = "#1e293b"
+    ) %>%
+    formatStyle(
+        columns    = "family",
+        color      = "#64748b",
+        fontSize   = "10px"
+    ) %>%
+    formatStyle(
+        columns = "notes",
+        fontSize = "10px",
+        color = "#475569",
+        maxWidth = "300px",
+        overflow = "hidden",
+        textOverflow = "ellipsis",
+        whiteSpace = "nowrap",
+        cursor = "pointer"
+    ) %>%
+    formatStyle(
+        columns = "references",
+        fontSize = "10px",
+        color = "#475569",
+        maxWidth = "250px",
+        overflow = "hidden",
+        textOverflow = "ellipsis",
+        whiteSpace = "nowrap",
+        cursor = "pointer"
+    )
+
+# JavaScript to toggle cell expansion on click
+expand_js <- htmltools::tags$script(htmltools::HTML("
+$(document).ready(function() {
+    $(document).on('click', 'td', function() {
+        var $td = $(this);
+        // Only apply to notes/references columns (check by index or content length)
+        if ($td.css('white-space') === 'nowrap' && $td.css('cursor') === 'pointer') {
+            if ($td.data('expanded')) {
+                $td.css({'white-space': 'nowrap', 'max-width': $td.data('orig-width'), 'overflow': 'hidden', 'text-overflow': 'ellipsis'});
+                $td.data('expanded', false);
+            } else {
+                $td.data('orig-width', $td.css('max-width'));
+                $td.css({'white-space': 'normal', 'max-width': '500px', 'overflow': 'visible', 'text-overflow': 'clip'});
+                $td.data('expanded', true);
+            }
+        }
+    });
+});
+"))
+
+htmltools::tagList(header_html, dt, expand_js)
+```
