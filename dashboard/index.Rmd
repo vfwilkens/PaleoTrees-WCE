@@ -269,10 +269,10 @@ table.dataTable.no-footer {
   gap: 6px;
   background-color: #575757;
   color: #ffffff;
-  font-family: var(--font-base);
+  font-family: Inter, sans-serif;
   font-weight: 500;
-  font-size: 0.82rem;
-  padding: 7px 16px;
+  font-size: 12px;
+  padding: 9px 20px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -1007,15 +1007,15 @@ header_html <- htmltools::div(
     htmltools::div(
         style = "display: flex; align-items: center; gap: 16px; font-family: Inter, sans-serif; font-size: 12px; color: #475569;",
         htmltools::span(
-            htmltools::span(class = "legend-badge", style = "background-color: #1e3a5f;"),
+            htmltools::span(class = "legend-badge", style = "background-color: rgba(30,58,95,0.55);"),
             "PBDB occurrence"
         ),
         htmltools::span(
-            htmltools::span(class = "legend-badge", style = "background-color: #4a7fb5;"),
+            htmltools::span(class = "legend-badge", style = "background-color: rgba(74,127,181,0.5);"),
             "Literature occurrence"
         ),
         htmltools::span(
-            htmltools::span(class = "legend-badge", style = "background-color: #f8fafc; border: 1px solid #e2e8f0;"),
+            htmltools::span(class = "legend-badge", style = "background-color: rgba(248,250,252,0.6); border: 1px solid #e2e8f0;"),
             "No occurrence"
         )
     ),
@@ -1030,7 +1030,7 @@ header_html <- htmltools::div(
 
 dt <- datatable(
     dashboard_data_display,
-    filter = "top",
+    filter = "none",
     rownames = FALSE,
     class = "stripe hover compact cell-border",
     options = list(
