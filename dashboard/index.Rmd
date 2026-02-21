@@ -300,6 +300,12 @@ table.dataTable.no-footer {
   .chart-wrapper { padding: 12px 14px; border-radius: 8px; }
   .chart-title   { font-size: 0.95rem; }
   .navbar-brand  { font-size: 1rem; }
+  /* Prevent plotly from swallowing the page's vertical scroll gesture */
+  .js-plotly-plot .svg-container { touch-action: pan-y !important; }
+  /* Allow the panel body to scroll so expanded explanations are reachable */
+  .chart-stage { overflow-y: auto !important; }
+  /* Hide the modebar on mobile — pan and pinch-zoom still work via touch */
+  .modebar-container { display: none !important; }
 }
 </style>
 
@@ -415,10 +421,11 @@ Row
 
 <details style="margin-bottom: 10px; font-size: 12px; font-family: 'Inter', sans-serif;">
 <summary style="cursor: pointer; font-weight: 500; color: #3b82f6; display: inline-block; padding: 4px 8px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;"><i class="fa fa-info-circle"></i> Explanation</summary>
-<div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; line-height: 1.5;">
+<div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; line-height: 1.5; max-height: 55vh; overflow-y: auto;">
 **Average locations in climate space of Cenozoic tree genera from Western and Central Europe.** Estimated climatic centers of 200 tree genera, comparing regionally extinct genera (blue) and extant genera (yellow). Climatic centers of the Holocene regional tree flora (green), comprising the same genera as in extant genera but modelled using only native species, were also estimated. Hover over a genus to find more information. The Gelman-Rubin criterion (<em>R&#770;</em>) was used to assess Bayesian model convergence, with values closer to 1.0 indicating successful convergence. Current and future climate scenarios for Western and Central Europe have been underlaid, with each square representing a projected 625 km² (25 x 25 km) terrestrial grid cell. Current climate: 1981 – 2010. Moderate warming: SSP1-2.6 (+ 1.3 – 2.4 &deg;C by 2100). Severe warming: SSP5-8.5 (+ 3.3 – 5.7 &deg;C by 2100). Switch to last occurrence to see the timing of the last known fossil occurrence of each genus in Western and Central Europe. Point size scales with the number of accepted tree species within each genus.
 <div style="text-align: center; margin-top: 12px;"><img src="stratigraphy.svg" alt="Stratigraphic chart" style="max-width: 80%; height: auto;"></div></div>
 </details>
+
 
 ```{r centers_data, include=FALSE}
 # Load niche center models
@@ -622,13 +629,15 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 bordercolor = "#e2e8f0",
                 borderwidth = 1
             ),
-            margin = list(l = 60, r = 20, t = 40, b = 100), # Increased bottom margin for labels
+            dragmode = "pan",
+            uirevision = "constant",
+            margin = list(l = 60, r = 20, t = 45, b = 100), # Increased bottom margin for labels
             updatemenus = list(list(
                 type = "buttons",
                 direction = "right",
                 x = 0.5,
                 xanchor = "center",
-                y = 1.1,
+                y = 1.15,
                 bgcolor = "#f1f5f9",
                 bordercolor = "#cbd5e1",
                 font = list(family = "Inter, sans-serif", size = 12, color = "#1e293b"),
@@ -647,7 +656,51 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 )
             ))
         ) %>%
-        config(displayModeBar = TRUE, modeBarButtonsToRemove = list("select2d", "lasso2d"), displaylogo = FALSE)
+        config(displayModeBar = FALSE, scrollZoom = TRUE) %>%
+        htmlwidgets::onRender("
+            function(el) {
+                var legendVisible = true;
+
+                var btn = document.createElement('button');
+                btn.textContent = 'Toggle Legend';
+                btn.style.cssText = [
+                    'position:absolute',
+                    'z-index:1000',
+                    'font-family:Inter,sans-serif',
+                    'font-size:12px',
+                    'color:#1e293b',
+                    'background:#f1f5f9',
+                    'border:1px solid #cbd5e1',
+                    'border-radius:3px',
+                    'padding:4px 8px',
+                    'cursor:pointer',
+                    'line-height:1.2'
+                ].join(';');
+
+                // Pin to the top-right corner of the plot area.
+                // .svg-container is position:relative and its top-left is the SVG origin,
+                // so top=margin.t / right=margin.r lands exactly on the plot border corner.
+                function pinButton() {
+                    var layout = el._fullLayout;
+                    if (!layout) return;
+                    btn.style.top   = layout.margin.t + 'px';
+                    btn.style.right = layout.margin.r + 'px';
+                }
+
+                el.addEventListener('plotly_afterplot', pinButton);
+                window.addEventListener('resize', pinButton);
+
+                btn.addEventListener('click', function() {
+                    legendVisible = !legendVisible;
+                    Plotly.relayout(el, {showlegend: legendVisible});
+                });
+
+                // Append to .svg-container so position:absolute is in SVG coordinates,
+                // not the outer widget div which may have internal padding offsets.
+                el.querySelector('.svg-container').appendChild(btn);
+            }
+        ")
+
     fig
 }
 ```
@@ -656,7 +709,7 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
 
 <details style="margin-bottom: 10px; font-size: 12px; font-family: 'Inter', sans-serif;">
 <summary style="cursor: pointer; font-weight: 500; color: #3b82f6; display: inline-block; padding: 4px 8px; background: #eff6ff; border-radius: 4px; border: 1px solid #bfdbfe;"><i class="fa fa-info-circle"></i> Explanation</summary>
-<div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; line-height: 1.5;">
+<div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; line-height: 1.5; max-height: 55vh; overflow-y: auto;">
 **Upper and lower thermal limits of Cenozoic tree genera from Western and Central Europe.** Posteriors of upper and lower thermal limits for 200 tree genera were estimated, comparing regionally extinct genera (blue) and extant genera (yellow). Posteriors of genus-level thermal limits of the Holocene regional tree flora (green) were also estimated, comprising the same genera as in extant genera but modelled using only native species. Models were arranged by increasing upper thermal limit (bottom to top). Color stripes correspond to the last known occurrence of each genus in the fossil record of Western and Central Europe. Hover over a genus to find more information. The Gelman-Rubin criterion (<em>R&#770;</em>) was used to assess Bayesian model convergence, with values closer to 1.0 indicating successful convergence. The distribution of heat and cold extremes (mean daily maximum temperature of the warmest month and mean daily minimum temperature of the coldest month) by land area under current and future climate scenarios in Western and Central Europe is overlaid. Current climate: 1981 – 2010. Moderate warming: SSP1-2.6 (+ 1.3 – 2.4 &deg;C by 2100). Severe warming: SSP5-8.5 (+ 3.3 – 5.7 &deg;C by 2100).
 <div style="text-align: center; margin-top: 12px;"><img src="stratigraphy.svg" alt="Stratigraphic chart" style="max-width: 80%; height: auto;"></div></div>
 </details>
@@ -757,8 +810,8 @@ if (nrow(all_data_limits_densities) > 0) {
         group_by(model, label) %>%
         summarize(m5 = mean(m5), m6 = mean(m6), .groups = "drop")
 
-    # Single sort order: by lower thermal limit (ascending)
-    ord_min   <- ord_df %>% arrange(m6) %>% pull(model)
+    # Single sort order: by upper thermal limit (ascending), per the figure description
+    ord_min   <- ord_df %>% arrange(m5) %>% pull(model)
     map_y_min <- setNames(seq_along(ord_min), ord_min)
 
     # --- 2. Calculate Ribbon Heights ---
@@ -901,12 +954,13 @@ if (nrow(all_data_limits_densities) > 0) {
     tickvals <- seq_len(nrow(ord_df))
 
     p_ply <- p_ply %>% layout(
+        dragmode = "pan",
         xaxis = list(title = "", showgrid = FALSE, showline = FALSE, showticklabels = FALSE,
                      zeroline = FALSE, range = common_x_range, fixedrange = TRUE),
         yaxis = list(
             title = "Genus", showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 9),
             tickmode = "array", tickvals = tickvals, ticktext = labels_min,
-            range = c(0.5, nrow(ord_df) + 1.5)
+            range = c(0.5, nrow(ord_df) + 1.5), fixedrange = TRUE
         ),
         margin = c(fixed_margins, list(t = 0, b = 20))
     )
@@ -916,7 +970,7 @@ if (nrow(all_data_limits_densities) > 0) {
 
     htmltools::tagList(
         htmltools::div(style = "width: 100%; height: 190px; margin-bottom: 0px;", p_top),
-        htmltools::div(style = "width: 100%; height: calc(100vh - 210px); overflow-y: auto;", p_ply)
+        htmltools::div(style = "width: 100%; height: calc(100vh - 210px); overflow-y: auto; touch-action: pan-y;", p_ply)
     )
 }
 ```
@@ -1074,3 +1128,4 @@ $(document).ready(function() {
 
 htmltools::tagList(header_html, dt, expand_js)
 ```
+
