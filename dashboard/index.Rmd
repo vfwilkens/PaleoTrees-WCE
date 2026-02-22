@@ -640,7 +640,7 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 var nLps  = %d;
 
                 /* -- Status / Last occurrence toggle buttons -- */
-                var btnStyle = 'font-family:Inter,sans-serif;font-size:12px;color:#1e293b;border:1px solid #cbd5e1;border-radius:3px;padding:4px 14px;cursor:pointer;line-height:1.2;';
+                var btnStyle = 'font-family:Inter,sans-serif;font-size:12px;color:#1e293b;border:1px solid #cbd5e1;border-radius:3px;padding:4px 14px;cursor:pointer;line-height:1.2;pointer-events:auto;';
 
                 var btnStatus = document.createElement('button');
                 btnStatus.innerHTML = 'Status';
@@ -651,7 +651,7 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 btnLast.style.cssText = btnStyle + 'background:#f1f5f9;';
 
                 var btnWrap = document.createElement('div');
-                btnWrap.style.cssText = 'position:relative;z-index:1000;display:flex;justify-content:center;gap:6px;padding:6px 0 4px 0;visibility:hidden;';
+                btnWrap.style.cssText = 'position:absolute;z-index:1000;top:6px;left:0;right:0;display:flex;justify-content:center;gap:6px;visibility:hidden;pointer-events:none;';
                 btnWrap.appendChild(btnStatus);
                 btnWrap.appendChild(btnLast);
 
@@ -682,7 +682,7 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                     var mr = layout.margin.r || 0;
                     btnWrap.style.paddingLeft  = ml + 'px';
                     btnWrap.style.paddingRight = mr + 'px';
-                    btnWrap.style.visibility   = 'visible';
+                    btnWrap.style.visibility = 'visible';
                     btnLegend.style.top   = mt + 'px';
                     btnLegend.style.right = mr + 'px';
                     btnLegend.style.visibility = 'visible';
@@ -717,7 +717,10 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 });
 
                 var chartStage = el.closest('.chart-stage') || el.parentNode;
-                chartStage.insertBefore(btnWrap, el);
+                if (window.getComputedStyle(chartStage).position === 'static') {
+                    chartStage.style.position = 'relative';
+                }
+                chartStage.appendChild(btnWrap);
                 el.querySelector('.svg-container').appendChild(btnLegend);
             }
         ", length(cats), length(lps)))
@@ -1021,7 +1024,7 @@ if (nrow(all_data_limits_densities) > 0) {
         toggle_html,
         scen_label_html,
         htmltools::div(style = "width: 100%; height: 140px; margin-bottom: 0px;", p_top),
-        htmltools::div(style = "width: 100%; height: calc(100vh - 222px); overflow-y: auto; touch-action: pan-y;", p_ply)
+        htmltools::div(style = "width: 100%; height: calc(100vh - 420px); overflow-y: auto; touch-action: pan-y;", p_ply)
     )
 }
 ```
