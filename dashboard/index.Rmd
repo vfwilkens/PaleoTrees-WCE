@@ -593,7 +593,7 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 showgrid = FALSE,
                 zeroline = FALSE,
                 range = c(0, 35),
-                tickfont = list(size = 14),
+                tickfont = list(size = 11),
                 constrain = "domain",
                 showline = TRUE,
                 linewidth = 1,
@@ -611,7 +611,7 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                 gridcolor = "#e2e8f0",
                 zeroline = FALSE,
                 range = c(400, 3000),
-                tickfont = list(size = 14),
+                tickfont = list(size = 11),
                 constrain = "domain",
                 showline = TRUE,
                 linewidth = 1,
@@ -631,39 +631,35 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
             ),
             dragmode = "pan",
             uirevision = "constant",
-            margin = list(l = 60, r = 20, t = 45, b = 100), # Increased bottom margin for labels
-            updatemenus = list(list(
-                type = "buttons",
-                direction = "right",
-                x = 0.5,
-                xanchor = "center",
-                y = 1.15,
-                bgcolor = "#f1f5f9",
-                bordercolor = "#cbd5e1",
-                font = list(family = "Inter, sans-serif", size = 12, color = "#1e293b"),
-                buttons = list(
-                    list(
-                        method = "restyle",
-                        # Args: rep(TRUE, 3) keeps climate scenarios visible. Then toggle cats/lps.
-                        args   = list("visible", c(rep(TRUE, 3), rep(TRUE, length(cats)), rep(FALSE, length(lps)))),
-                        label  = "Status"
-                    ),
-                    list(
-                        method = "restyle",
-                        args   = list("visible", c(rep(TRUE, 3), rep(FALSE, length(cats)), rep(TRUE, length(lps)))),
-                        label  = "Last occurrence"
-                    )
-                )
-            ))
+            margin = list(l = 60, r = 20, t = 45, b = 100)
         ) %>%
         config(displayModeBar = FALSE, scrollZoom = TRUE) %>%
-        htmlwidgets::onRender("
+        htmlwidgets::onRender(sprintf("
             function(el) {
-                var legendVisible = true;
+                var nCats = %d;
+                var nLps  = %d;
 
-                var btn = document.createElement('button');
-                btn.textContent = 'Toggle Legend';
-                btn.style.cssText = [
+                /* -- Status / Last occurrence toggle buttons -- */
+                var btnStyle = 'font-family:Inter,sans-serif;font-size:12px;color:#1e293b;border:1px solid #cbd5e1;border-radius:3px;padding:4px 14px;cursor:pointer;line-height:1.2;';
+
+                var btnStatus = document.createElement('button');
+                btnStatus.innerHTML = 'Status';
+                btnStatus.style.cssText = btnStyle + 'background:#cbd5e1;';
+
+                var btnLast = document.createElement('button');
+                btnLast.innerHTML = 'Last occurrence';
+                btnLast.style.cssText = btnStyle + 'background:#f1f5f9;';
+
+                var btnWrap = document.createElement('div');
+                btnWrap.style.cssText = 'position:absolute;z-index:1000;display:flex;gap:6px;transform:translateX(-50%%);visibility:hidden;';
+                btnWrap.appendChild(btnStatus);
+                btnWrap.appendChild(btnLast);
+
+                /* -- Toggle Legend button -- */
+                var legendVisible = true;
+                var btnLegend = document.createElement('button');
+                btnLegend.textContent = 'Toggle Legend';
+                btnLegend.style.cssText = [
                     'position:absolute',
                     'z-index:1000',
                     'font-family:Inter,sans-serif',
@@ -674,32 +670,58 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
                     'border-radius:3px',
                     'padding:4px 8px',
                     'cursor:pointer',
-                    'line-height:1.2'
+                    'line-height:1.2',
+                    'visibility:hidden'
                 ].join(';');
 
-                // Pin to the top-right corner of the plot area.
-                // .svg-container is position:relative and its top-left is the SVG origin,
-                // so top=margin.t / right=margin.r lands exactly on the plot border corner.
-                function pinButton() {
+                function pinButtons() {
                     var layout = el._fullLayout;
                     if (!layout) return;
-                    btn.style.top   = layout.margin.t + 'px';
-                    btn.style.right = layout.margin.r + 'px';
+                    var mt = layout.margin.t;
+                    var ml = layout.margin.l || 0;
+                    var mr = layout.margin.r || 0;
+                    var plotW = (layout.width || el.offsetWidth) - ml - mr;
+                    btnWrap.style.top  = Math.max(4, Math.round((mt - 24) / 2)) + 'px';
+                    btnWrap.style.left = (ml + plotW / 2) + 'px';
+                    btnWrap.style.visibility = 'visible';
+                    btnLegend.style.top   = mt + 'px';
+                    btnLegend.style.right = mr + 'px';
+                    btnLegend.style.visibility = 'visible';
                 }
 
-                el.addEventListener('plotly_afterplot', pinButton);
-                window.addEventListener('resize', pinButton);
+                function setMode(mode) {
+                    var vis = [];
+                    for (var i = 0; i < 3; i++) vis.push(true);
+                    for (var i = 0; i < nCats; i++) vis.push(mode === 'status');
+                    for (var i = 0; i < nLps; i++) vis.push(mode !== 'status');
+                    Plotly.restyle(el, {visible: vis});
+                    btnStatus.style.background = mode === 'status' ? '#cbd5e1' : '#f1f5f9';
+                    btnLast.style.background   = mode !== 'status' ? '#cbd5e1' : '#f1f5f9';
+                }
 
-                btn.addEventListener('click', function() {
+                var initialized = false;
+                el.addEventListener('plotly_afterplot', function() {
+                    pinButtons();
+                    if (!initialized) {
+                        initialized = true;
+                        setMode('status');
+                    }
+                });
+                window.addEventListener('resize', pinButtons);
+
+                btnStatus.addEventListener('click', function() { setMode('status'); });
+                btnLast.addEventListener('click',   function() { setMode('last');   });
+
+                btnLegend.addEventListener('click', function() {
                     legendVisible = !legendVisible;
                     Plotly.relayout(el, {showlegend: legendVisible});
                 });
 
-                // Append to .svg-container so position:absolute is in SVG coordinates,
-                // not the outer widget div which may have internal padding offsets.
-                el.querySelector('.svg-container').appendChild(btn);
+                var svg = el.querySelector('.svg-container');
+                svg.appendChild(btnWrap);
+                svg.appendChild(btnLegend);
             }
-        ")
+        ", length(cats), length(lps)))
 
     fig
 }
@@ -751,6 +773,7 @@ if (length(file_paths_limits) > 0) {
             {
                 m_name <- model_names_limits[g]
                 model <- model_list_limits[[g]]
+                n_species <- tryCatch(max(1, length(unique(model$data$species))), error = function(e) NA)
                 para <- as_draws_df(model)
                 if (all(c("b_bio5_Intercept", "b_bio6_Intercept") %in% names(para))) {
                     Rhat_val <- tryCatch(max(rhat(model)), error = function(e) NA)
@@ -758,12 +781,12 @@ if (length(file_paths_limits) > 0) {
                     d_max <- density(para$b_bio5_Intercept)
                     idx <- which(ordered_models == m_name)
                     max_val <- max(c(d_min$y, d_max$y))
-                    df_min <- data.frame(x = d_min$x, y_final = (d_min$y / max_val) + idx, model = m_name, Metric = "Min Temp", Rhat = Rhat_val)
-                    df_max <- data.frame(x = d_max$x, y_final = (d_max$y / max_val) + idx, model = m_name, Metric = "Max Temp", Rhat = Rhat_val)
+                    df_min <- data.frame(x = d_min$x, y_final = (d_min$y / max_val) + idx, model = m_name, Metric = "Min Temp", Rhat = Rhat_val, n = n_species)
+                    df_max <- data.frame(x = d_max$x, y_final = (d_max$y / max_val) + idx, model = m_name, Metric = "Max Temp", Rhat = Rhat_val, n = n_species)
                     all_data_limits_densities <- rbind(all_data_limits_densities, df_min, df_max)
                     m5 <- median(para$b_bio5_Intercept)
                     m6 <- median(para$b_bio6_Intercept)
-                    medians_segments <- rbind(medians_segments, data.frame(model = m_name, m6 = m6, m5 = m5, y = idx, Rhat = Rhat_val))
+                    medians_segments <- rbind(medians_segments, data.frame(model = m_name, m6 = m6, m5 = m5, y = idx, Rhat = Rhat_val, n = n_species))
                 }
             },
             error = function(e) {
@@ -835,6 +858,7 @@ if (nrow(all_data_limits_densities) > 0) {
     # --- 4. Hover Text ---
     all_data_limits_densities$hover_text <- paste0(
         "<b>Genus:</b> ", all_data_limits_densities$genus, "<br>",
+        "<b>Tree species count:</b> ", all_data_limits_densities$n, "<br>",
         "<b>Limit:</b> ", all_data_limits_densities$x, " &deg;C<br>",
         "<b>Status:</b> ", all_data_limits_densities$category, "<br>",
         "<b>Last occurrence:</b> ", all_data_limits_densities$last_presence_group, "<br>",
@@ -842,6 +866,7 @@ if (nrow(all_data_limits_densities) > 0) {
     )
     medians_segments$hover_text <- paste0(
         "<b>Genus:</b> ", gsub("_na$", "", medians_segments$model), "<br>",
+        "<b>Tree species count:</b> ", medians_segments$n, "<br>",
         "<b>Center:</b> ", round((medians_segments$m5 + medians_segments$m6) / 2, 2), " &deg;C<br>",
         "<b>Status:</b> ", medians_segments$category, "<br>",
         "<b>Last occurrence:</b> ", medians_segments$last_presence_group, "<br>",
@@ -868,7 +893,7 @@ if (nrow(all_data_limits_densities) > 0) {
         }
     }
 
-    p_top <- plot_ly(height = 190)
+    p_top <- plot_ly(height = 140)
     cols_scen           <- c("Current" = "#909090", "SSP126" = "#FF9538", "SSP585" = "#EB0000")
     cols_scen_rgba_fill <- c("Current" = "rgba(144,144,144,0.4)", "SSP126" = "rgba(255,149,56,0.4)", "SSP585" = "rgba(235,0,0,0.4)")
     scen_order <- c("Current", "SSP126", "SSP585")
@@ -899,20 +924,21 @@ if (nrow(all_data_limits_densities) > 0) {
         layout(
             xaxis = list(title = "Temperature [\u00B0C]", range = common_x_range, fixedrange = TRUE, side = "bottom", showgrid = FALSE, zeroline = FALSE),
             yaxis = list(showgrid = FALSE, showticklabels = FALSE, title = "", fixedrange = TRUE, zeroline = FALSE),
-            margin = c(fixed_margins, list(t = 40, b = 40)),
-            showlegend = FALSE,
-            updatemenus = list(list(
-                type = "buttons", direction = "left", x = 0.5, xanchor = "center", y = 1.45,
-                active = 1,
-                bgcolor = "#f1f5f9", bordercolor = "#cbd5e1",
-                font = list(family = "Inter, sans-serif", size = 12, color = "#1e293b"),
-                buttons = list(
-                    list(method = "restyle", args = list("visible", c(rep(TRUE, n_s), rep(FALSE, n_s))), label = "Lower"),
-                    list(method = "restyle", args = list("visible", c(rep(FALSE, n_s), rep(TRUE, n_s))), label = "Upper")
-                )
-            ))
+            margin = c(fixed_margins, list(t = 5, b = 40)),
+            showlegend = FALSE
         ) %>%
-        config(staticPlot = FALSE, displayModeBar = FALSE)
+        config(staticPlot = FALSE, displayModeBar = FALSE) %>%
+        htmlwidgets::onRender("function(el) { el.id = 'p-top-climate'; }")
+
+    btn_style_base  <- "font-family:Inter,sans-serif;font-size:12px;color:#1e293b;border:1px solid #cbd5e1;border-radius:3px;padding:4px 14px;cursor:pointer;"
+    toggle_html <- htmltools::div(
+        style = paste0("display:flex;justify-content:center;gap:6px;padding:6px ", fixed_margins$r, "px 4px ", fixed_margins$l, "px;"),
+        htmltools::tags$button(id = "ptop-btn-lower", style = paste0(btn_style_base, "background:#f1f5f9;"),
+                               onclick = "ptopToggle('lower')", htmltools::HTML("T<sub>min</sub>")),
+        htmltools::tags$button(id = "ptop-btn-upper", style = paste0(btn_style_base, "background:#cbd5e1;"),
+                               onclick = "ptopToggle('upper')", htmltools::HTML("T<sub>max</sub>"))
+    )
+
 
     # --- Main Plot: Niche Limits (single layer: Status coloring) ---
     p_limits <- ggplot() +
@@ -958,19 +984,45 @@ if (nrow(all_data_limits_densities) > 0) {
         xaxis = list(title = "", showgrid = FALSE, showline = FALSE, showticklabels = FALSE,
                      zeroline = FALSE, range = common_x_range, fixedrange = TRUE),
         yaxis = list(
-            title = "Genus", showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 9),
+            title = "", showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 11),
             tickmode = "array", tickvals = tickvals, ticktext = labels_min,
             range = c(0.5, nrow(ord_df) + 1.5), fixedrange = TRUE
         ),
-        margin = c(fixed_margins, list(t = 0, b = 20))
+        margin = c(fixed_margins, list(t = 20, b = 20))
+    )
+
+    # Column headers inside the SVG, visible at the top of the scroll view
+    p_ply <- p_ply %>% add_annotations(
+        x = common_x_range[1], xref = "x",
+        y = nrow(ord_df) + 1.0, yref = "y",
+        text = "<b>Genus</b>", showarrow = FALSE,
+        font = list(size = 12, color = "#334155", family = "Inter, sans-serif"),
+        xanchor = "right", yanchor = "middle", xshift = -4
+    ) %>% add_annotations(
+        x = 50, xref = "x",
+        y = nrow(ord_df) + 1.0, yref = "y",
+        text = "<b>Last occurrence</b>", showarrow = FALSE,
+        font = list(size = 12, color = "#334155", family = "Inter, sans-serif"),
+        xanchor = "center", yanchor = "middle"
     )
 
     # Wipe out any shapes to prevent grid lines or previous artifacts
     p_ply$x$layout$shapes <- NULL
+    p_ply <- p_ply %>% config(displayModeBar = FALSE, scrollZoom = FALSE)
+
+    # HTML scenario labels — sit between p_top and the scrollable list, wrap on narrow screens
+    scen_label_html <- htmltools::div(
+        style = paste0("width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 20px; padding: 4px ", fixed_margins$r, "px 4px ", fixed_margins$l, "px; font-family: Inter, sans-serif; font-size: 12px;"),
+        htmltools::span(style = paste0("color: ", cols_scen["Current"], "; white-space: nowrap;"), "Current climate in WCE"),
+        htmltools::span(style = paste0("color: ", cols_scen["SSP126"],  "; white-space: nowrap;"), "Moderate warming SSP1-2.6"),
+        htmltools::span(style = paste0("color: ", cols_scen["SSP585"],  "; white-space: nowrap;"), "Severe warming SSP5-8.5")
+    )
 
     htmltools::tagList(
-        htmltools::div(style = "width: 100%; height: 190px; margin-bottom: 0px;", p_top),
-        htmltools::div(style = "width: 100%; height: calc(100vh - 210px); overflow-y: auto; touch-action: pan-y;", p_ply)
+        toggle_html,
+        scen_label_html,
+        htmltools::div(style = "width: 100%; height: 140px; margin-bottom: 0px;", p_top),
+        htmltools::div(style = "width: 100%; height: calc(100vh - 222px); overflow-y: auto; touch-action: pan-y;", p_ply)
     )
 }
 ```
@@ -1129,3 +1181,15 @@ $(document).ready(function() {
 htmltools::tagList(header_html, dt, expand_js)
 ```
 
+<script>
+function ptopToggle(which) {
+    var gd = document.getElementById('p-top-climate');
+    if (!gd) return;
+    var vis = which === 'upper'
+        ? [false, false, false, true,  true,  true]
+        : [true,  true,  true,  false, false, false];
+    Plotly.restyle(gd, {visible: vis});
+    document.getElementById('ptop-btn-lower').style.background = which === 'lower' ? '#cbd5e1' : '#f1f5f9';
+    document.getElementById('ptop-btn-upper').style.background = which === 'upper' ? '#cbd5e1' : '#f1f5f9';
+}
+</script>
