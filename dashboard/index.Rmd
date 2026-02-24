@@ -504,8 +504,10 @@ try(
 
                 if (length(b1_idx) > 0 && length(b12_idx) > 0 && length(b5_idx) > 0 && length(b6_idx) > 0) {
                     r_sub <- r[[c(b1_idx[1], b12_idx[1], b5_idx[1], b6_idx[1])]]
-                    r_small <- aggregate(r_sub, fact = 2, fun = mean)
-                    df <- as.data.frame(r_small, xy = TRUE)
+                    # Equal-area projection (LAEA Europe) to match analysis code (EPSG:3035)
+                    laea_proj <- "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs"
+                    r_sub <- tryCatch(terra::project(r_sub, laea_proj), error = function(e) r_sub)
+                    df <- as.data.frame(r_sub, xy = TRUE)
                     colnames(df) <- c("x", "y", "bio1", "bio12", "bio5", "bio6")
                     df <- df %>% mutate(group = label)
                     return(df)
@@ -534,12 +536,26 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
     if (nrow(bg_data) > 0) {
         scenarios <- unique(bg_data$group)
         cols_scen <- c("Current" = "#909090", "SSP126" = "#FF9538", "SSP585" = "#EB0000")
+
+        hex_to_rgba <- function(hex, alpha) {
+            r <- strtoi(substr(hex, 2, 3), 16L)
+            g <- strtoi(substr(hex, 4, 5), 16L)
+            b <- strtoi(substr(hex, 6, 7), 16L)
+            sprintf("rgba(%d,%d,%d,%.2f)", r, g, b, alpha)
+        }
+
         for (scen in scenarios) {
             sub <- bg_data[bg_data$group == scen, ] %>% filter(bio1 >= 0 & bio1 <= 35 & bio12 >= 400 & bio12 <= 3000)
+            col <- cols_scen[scen]
+            cs  <- list(list(0, hex_to_rgba(col, 0)), list(1, hex_to_rgba(col, 0.65)))
+            kde <- MASS::kde2d(sub$bio1, sub$bio12, n = 100, lims = c(0, 35, 400, 3000))
+            kde$z <- kde$z / max(kde$z, na.rm = TRUE) # normalise like ndensity
             fig <- fig %>% add_trace(
-                data = sub, x = ~bio1, y = ~bio12, type = "scatter", mode = "markers",
-                marker = list(color = cols_scen[scen], size = 6, opacity = 0.15, symbol = "square"), # Squares
-                name = scen, visible = TRUE, showlegend = TRUE, hoverinfo = "none" # Always visible
+                x = kde$x, y = kde$y, z = t(kde$z),
+                type = "contour",
+                colorscale = cs, showscale = FALSE,
+                contours = list(start = 1/7, end = 1, size = 1/7, coloring = "fill", showlines = FALSE),
+                name = scen, visible = TRUE, showlegend = TRUE, hoverinfo = "none"
             )
         }
     }
@@ -836,7 +852,9 @@ if (nrow(all_data_limits_densities) > 0) {
         summarize(m5 = mean(m5), m6 = mean(m6), .groups = "drop")
 
     # Single sort order: by upper thermal limit (ascending), per the figure description
-    ord_min   <- ord_df %>% arrange(m5) %>% pull(model)
+    ord_min <- ord_df %>%
+        arrange(m5) %>%
+        pull(model)
     map_y_min <- setNames(seq_along(ord_min), ord_min)
 
     # --- 2. Calculate Ribbon Heights ---
@@ -844,7 +862,7 @@ if (nrow(all_data_limits_densities) > 0) {
     all_data_limits_densities$x <- round(all_data_limits_densities$x, 2)
 
     all_data_limits_densities$y_min_base <- map_y_min[all_data_limits_densities$model]
-    all_data_limits_densities$y_min_top  <- round(all_data_limits_densities$y_min_base + all_data_limits_densities$density_height, 3)
+    all_data_limits_densities$y_min_top <- round(all_data_limits_densities$y_min_base + all_data_limits_densities$density_height, 3)
 
     medians_segments$y_min <- map_y_min[medians_segments$model]
 
@@ -852,7 +870,7 @@ if (nrow(all_data_limits_densities) > 0) {
     if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
         lp_map <- setNames(all_data_centers$last_presence_group, all_data_centers$model)
         all_data_limits_densities$last_presence_group <- lp_map[all_data_limits_densities$model]
-        medians_segments$last_presence_group          <- lp_map[medians_segments$model]
+        medians_segments$last_presence_group <- lp_map[medians_segments$model]
     }
     all_data_limits_densities$last_presence_group[is.na(all_data_limits_densities$last_presence_group)] <- "Unknown"
     medians_segments$last_presence_group[is.na(medians_segments$last_presence_group)] <- "Unknown"
@@ -879,7 +897,7 @@ if (nrow(all_data_limits_densities) > 0) {
 
     # --- Configuration ---
     common_x_range <- c(-20, 60)
-    fixed_margins  <- list(l = 100, r = 20)
+    fixed_margins <- list(l = 100, r = 20)
 
     # --- Top Plot: Climate Distributions ---
     dens_bio5 <- data.frame()
@@ -896,7 +914,7 @@ if (nrow(all_data_limits_densities) > 0) {
     }
 
     p_top <- plot_ly(height = 140)
-    cols_scen           <- c("Current" = "#909090", "SSP126" = "#FF9538", "SSP585" = "#EB0000")
+    cols_scen <- c("Current" = "#909090", "SSP126" = "#FF9538", "SSP585" = "#EB0000")
     cols_scen_rgba_fill <- c("Current" = "rgba(144,144,144,0.4)", "SSP126" = "rgba(255,149,56,0.4)", "SSP585" = "rgba(235,0,0,0.4)")
     scen_order <- c("Current", "SSP126", "SSP585")
 
@@ -932,13 +950,17 @@ if (nrow(all_data_limits_densities) > 0) {
         config(staticPlot = FALSE, displayModeBar = FALSE) %>%
         htmlwidgets::onRender("function(el) { el.id = 'p-top-climate'; }")
 
-    btn_style_base  <- "font-family:Inter,sans-serif;font-size:12px;color:#1e293b;border:1px solid #cbd5e1;border-radius:3px;padding:4px 14px;cursor:pointer;"
+    btn_style_base <- "font-family:Inter,sans-serif;font-size:12px;color:#1e293b;border:1px solid #cbd5e1;border-radius:3px;padding:4px 14px;cursor:pointer;"
     toggle_html <- htmltools::div(
         style = paste0("display:flex;justify-content:center;gap:6px;padding:6px ", fixed_margins$r, "px 4px ", fixed_margins$l, "px;"),
-        htmltools::tags$button(id = "ptop-btn-lower", style = paste0(btn_style_base, "background:#f1f5f9;"),
-                               onclick = "ptopToggle('lower')", htmltools::HTML("T<sub>min</sub>")),
-        htmltools::tags$button(id = "ptop-btn-upper", style = paste0(btn_style_base, "background:#cbd5e1;"),
-                               onclick = "ptopToggle('upper')", htmltools::HTML("T<sub>max</sub>"))
+        htmltools::tags$button(
+            id = "ptop-btn-lower", style = paste0(btn_style_base, "background:#f1f5f9;"),
+            onclick = "ptopToggle('lower')", htmltools::HTML("T<sub>min</sub>")
+        ),
+        htmltools::tags$button(
+            id = "ptop-btn-upper", style = paste0(btn_style_base, "background:#cbd5e1;"),
+            onclick = "ptopToggle('upper')", htmltools::HTML("T<sub>max</sub>")
+        )
     )
 
 
@@ -946,8 +968,10 @@ if (nrow(all_data_limits_densities) > 0) {
     p_limits <- ggplot() +
         geom_ribbon(
             data = all_data_limits_densities,
-            aes(x = x, ymin = y_min_base, ymax = y_min_top,
-                group = interaction(model, Metric), fill = category, text = hover_text),
+            aes(
+                x = x, ymin = y_min_base, ymax = y_min_top,
+                group = interaction(model, Metric), fill = category, text = hover_text
+            ),
             alpha = 0.6
         ) +
         geom_segment(
@@ -955,7 +979,7 @@ if (nrow(all_data_limits_densities) > 0) {
             aes(x = m6, xend = m5, y = y_min, yend = y_min, color = category, text = hover_text),
             linewidth = 0.8
         ) +
-        scale_fill_manual(values  = c(cat_colors, colors_periods)) +
+        scale_fill_manual(values = c(cat_colors, colors_periods)) +
         scale_color_manual(values = c(cat_colors, colors_periods)) +
         scale_x_continuous(limits = common_x_range) +
         scale_y_continuous(limits = c(0.5, nrow(ord_df) + 1.5), expand = c(0, 0)) +
@@ -983,8 +1007,10 @@ if (nrow(all_data_limits_densities) > 0) {
 
     p_ply <- p_ply %>% layout(
         dragmode = "pan",
-        xaxis = list(title = "", showgrid = FALSE, showline = FALSE, showticklabels = FALSE,
-                     zeroline = FALSE, range = common_x_range, fixedrange = TRUE),
+        xaxis = list(
+            title = "", showgrid = FALSE, showline = FALSE, showticklabels = FALSE,
+            zeroline = FALSE, range = common_x_range, fixedrange = TRUE
+        ),
         yaxis = list(
             title = "", showgrid = FALSE, zeroline = FALSE, tickfont = list(size = 11),
             tickmode = "array", tickvals = tickvals, ticktext = labels_min,
@@ -994,19 +1020,21 @@ if (nrow(all_data_limits_densities) > 0) {
     )
 
     # Column headers inside the SVG, visible at the top of the scroll view
-    p_ply <- p_ply %>% add_annotations(
-        x = common_x_range[1], xref = "x",
-        y = nrow(ord_df) + 1.0, yref = "y",
-        text = "<b>Genus</b>", showarrow = FALSE,
-        font = list(size = 12, color = "#334155", family = "Inter, sans-serif"),
-        xanchor = "right", yanchor = "middle", xshift = -4
-    ) %>% add_annotations(
-        x = 50, xref = "x",
-        y = nrow(ord_df) + 1.0, yref = "y",
-        text = "<b>Last occurrence</b>", showarrow = FALSE,
-        font = list(size = 12, color = "#334155", family = "Inter, sans-serif"),
-        xanchor = "center", yanchor = "middle"
-    )
+    p_ply <- p_ply %>%
+        add_annotations(
+            x = common_x_range[1], xref = "x",
+            y = nrow(ord_df) + 1.0, yref = "y",
+            text = "<b>Genus</b>", showarrow = FALSE,
+            font = list(size = 12, color = "#334155", family = "Inter, sans-serif"),
+            xanchor = "right", yanchor = "middle", xshift = -4
+        ) %>%
+        add_annotations(
+            x = 50, xref = "x",
+            y = nrow(ord_df) + 1.0, yref = "y",
+            text = "<b>Last occurrence</b>", showarrow = FALSE,
+            font = list(size = 12, color = "#334155", family = "Inter, sans-serif"),
+            xanchor = "center", yanchor = "middle"
+        )
 
     # Wipe out any shapes to prevent grid lines or previous artifacts
     p_ply$x$layout$shapes <- NULL
@@ -1016,8 +1044,8 @@ if (nrow(all_data_limits_densities) > 0) {
     scen_label_html <- htmltools::div(
         style = paste0("width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 20px; padding: 4px ", fixed_margins$r, "px 4px ", fixed_margins$l, "px; font-family: Inter, sans-serif; font-size: 12px;"),
         htmltools::span(style = paste0("color: ", cols_scen["Current"], "; white-space: nowrap;"), "Current climate in WCE"),
-        htmltools::span(style = paste0("color: ", cols_scen["SSP126"],  "; white-space: nowrap;"), "Moderate warming SSP1-2.6"),
-        htmltools::span(style = paste0("color: ", cols_scen["SSP585"],  "; white-space: nowrap;"), "Severe warming SSP5-8.5")
+        htmltools::span(style = paste0("color: ", cols_scen["SSP126"], "; white-space: nowrap;"), "Moderate warming SSP1-2.6"),
+        htmltools::span(style = paste0("color: ", cols_scen["SSP585"], "; white-space: nowrap;"), "Severe warming SSP5-8.5")
     )
 
     htmltools::tagList(
@@ -1101,6 +1129,11 @@ dt <- datatable(
         scrollX = TRUE,
         scrollCollapse = TRUE,
         autoWidth = FALSE,
+        columnDefs = list(
+            list(width = "75px", targets = as.list(
+                which(names(dashboard_data_display) %in% c("genus", "family", period_cols)) - 1L
+            ))
+        ),
         dom = "lfrtip",
         language = list(
             search      = "Search genera:",
