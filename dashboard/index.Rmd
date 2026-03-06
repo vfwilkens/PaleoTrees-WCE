@@ -129,6 +129,11 @@ body {
    DATATABLES OVERRIDES
    ============================================================ */
 
+/* Extra scroll room so the last rows aren't clipped */
+.dataTables_scrollBody table.dataTable {
+  margin-bottom: 80px !important;
+}
+
 .dataTables_wrapper .dataTables_length,
 .dataTables_wrapper .dataTables_filter,
 .dataTables_wrapper .dataTables_info,
@@ -547,14 +552,14 @@ if (exists("all_data_centers") && nrow(all_data_centers) > 0) {
         for (scen in scenarios) {
             sub <- bg_data[bg_data$group == scen, ] %>% filter(bio1 >= 0 & bio1 <= 35 & bio12 >= 400 & bio12 <= 3000)
             col <- cols_scen[scen]
-            cs  <- list(list(0, hex_to_rgba(col, 0)), list(1, hex_to_rgba(col, 0.65)))
+            cs <- list(list(0, hex_to_rgba(col, 0)), list(1, hex_to_rgba(col, 0.65)))
             kde <- MASS::kde2d(sub$bio1, sub$bio12, n = 100, lims = c(0, 35, 400, 3000))
             kde$z <- kde$z / max(kde$z, na.rm = TRUE) # normalise like ndensity
             fig <- fig %>% add_trace(
                 x = kde$x, y = kde$y, z = t(kde$z),
                 type = "contour",
                 colorscale = cs, showscale = FALSE,
-                contours = list(start = 1/7, end = 1, size = 1/7, coloring = "fill", showlines = FALSE),
+                contours = list(start = 1 / 7, end = 1, size = 1 / 7, coloring = "fill", showlines = FALSE),
                 name = scen, visible = TRUE, showlegend = TRUE, hoverinfo = "none"
             )
         }
@@ -1081,6 +1086,20 @@ period_cols <- c(
     "Tegelen", "Waal", "Cromer", "Holstein", "Eem", "Holocene"
 )
 
+colors_periods <- c(
+    "Paleocene" = "#FF9A5C",
+    "Eocene"    = "#FFBC87",
+    "Oligocene" = "#FFC694",
+    "Miocene"   = "#FFEB3D",
+    "Pliocene"  = "#FFF6B2",
+    "Tegelen"   = "#4FB3D4",
+    "Waal"      = "#7FC5DD",
+    "Cromer"    = "#99D9DD",
+    "Holstein"  = "#B4E2E3",
+    "Eem"       = "#CBF5FC",
+    "Holocene"  = "#DCE8E9"
+)
+
 # Display labels for values (invisible text — cells are color-only)
 dashboard_data_display <- dashboard_data
 for (col in period_cols) {
@@ -1109,9 +1128,9 @@ header_html <- htmltools::div(
         )
     ),
     htmltools::tags$a(
-        href = "#",
+        href = "../data/data_1/Wilkens et al - Fossil Dataset - 12-02-26.xlsx",
         class = "btn-download",
-        target = "_blank",
+        download = "Wilkens et al - Fossil Dataset - 12-02-26.xlsx",
         htmltools::tags$i(class = "fa fa-download"),
         "Download"
     )
@@ -1125,7 +1144,7 @@ dt <- datatable(
     options = list(
         pageLength = -1,
         lengthMenu = list(c(25, 50, 100, -1), c("25", "50", "100", "All")),
-        scrollY = "calc(100vh - 280px)",
+        scrollY = "calc(100vh - 340px)",
         scrollX = TRUE,
         scrollCollapse = TRUE,
         autoWidth = FALSE,
@@ -1134,7 +1153,7 @@ dt <- datatable(
                 which(names(dashboard_data_display) %in% c("genus", "family", period_cols)) - 1L
             ))
         ),
-        dom = "lfrtip",
+        dom = "frti",
         language = list(
             search      = "Search genera:",
             info        = "Showing _START_ to _END_ of _TOTAL_ genera",
@@ -1142,6 +1161,21 @@ dt <- datatable(
             zeroRecords = "No matching genera",
             lengthMenu  = "Show _MENU_ genera"
         ),
+        headerCallback = JS(sprintf("
+            function(thead, data, start, end, display) {
+                var colColors = %s;
+                $(thead).find('th').each(function(i) {
+                    if (colColors[i] !== undefined) {
+                        $(this).css({'background-color': colColors[i], 'color': '#1e293b'});
+                    }
+                });
+            }
+        ", {
+            idx <- which(names(dashboard_data_display) %in% names(colors_periods)) - 1L
+            nms <- names(dashboard_data_display)[idx + 1L]
+            pairs <- paste(sprintf('"%d":"%s"', idx, colors_periods[nms]), collapse = ",")
+            paste0("{", pairs, "}")
+        })),
         initComplete = JS("
             function(settings, json) {
                 var api = this.api();
