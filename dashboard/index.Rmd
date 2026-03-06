@@ -1128,7 +1128,7 @@ header_html <- htmltools::div(
         )
     ),
     htmltools::tags$a(
-        href = "../data/data_1/Wilkens et al - Fossil Dataset - 12-02-26.xlsx",
+        href = "Wilkens et al - Fossil Dataset - 12-02-26.xlsx",
         class = "btn-download",
         download = "Wilkens et al - Fossil Dataset - 12-02-26.xlsx",
         htmltools::tags$i(class = "fa fa-download"),
