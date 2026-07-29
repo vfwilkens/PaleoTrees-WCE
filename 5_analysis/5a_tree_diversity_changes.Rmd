@@ -62,7 +62,7 @@ plot1 <- ggplot(data = paleotrees_summary) +
   annotate("segment", x = "Tegelen", xend = "Eem", y = gymno_pleistocene, yend = gymno_pleistocene, color = "#427F62", linetype = "longdash", linewidth = mm(0.15)) +
   geom_bar(aes(x = variable, y = value, fill = higher), stat = "identity", width = 0.5) +
   theme_minimal() +
-  ylim(0, 180) +
+  scale_y_continuous(limits = c(0, 180), breaks = seq(0, 180, by = 25), minor_breaks = setdiff(seq(0, 180, by = 5),seq(0, 180, by = 25)),guide = guide_axis(minor.ticks = TRUE)) +
   theme(
     legend.position = "none",
     panel.background = element_blank(),
@@ -76,7 +76,9 @@ plot1 <- ggplot(data = paleotrees_summary) +
     axis.title.y = element_blank(),
     axis.ticks.length = unit(0.1, "cm"),
     axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
-    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15))
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   ) +
   scale_fill_manual(values = c("#DAA84C", "#427F62"), labels = c("Angiosperms", "Gymnosperms"))
 
@@ -84,9 +86,9 @@ plot1 <- ggplot(data = paleotrees_summary) +
 plot2 <- ggplot(paleotrees_summary, aes(y = value, x = min_ma, xend = max_ma, yend = value, color = higher)) +
   geom_segment(size = 1, alpha = 0.6) +
   geom_line(aes(x = mid_point, y = value, group = higher), size = 0.5) +
-  scale_x_reverse() +
-  ylim(0, 180) +
+  scale_x_reverse(limits = c(0, 66), breaks = seq(0, 66, by = 20), minor_breaks = setdiff(seq(0, 66, by = 5),seq(0, 66, by = 20)),guide = guide_axis(minor.ticks = TRUE)) +
   theme_minimal() +
+  scale_y_continuous(limits = c(0, 180), breaks = seq(0, 180, by = 25), minor_breaks = setdiff(seq(0, 180, by = 5),seq(0, 180, by = 25)),guide = guide_axis(minor.ticks = TRUE)) +
   theme(
     legend.position = "none",
     panel.background = element_blank(),
@@ -100,7 +102,11 @@ plot2 <- ggplot(paleotrees_summary, aes(y = value, x = min_ma, xend = max_ma, ye
     axis.text.x = element_text(size = 8, colour = "black"),
     axis.ticks.length = unit(0.1, "cm"),
     axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
-    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15))
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75),
+    axis.minor.ticks.x.bottom = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.x = rel(0.75)
   ) +
   scale_color_manual(values = c("#DAA84C", "#427F62"), labels = c("Angiosperms", "Gymnosperms"))
 ```
@@ -146,6 +152,15 @@ plot3 <- ggplot(
 ) +
   geom_bar(stat = "identity", width = 0.5) +
   scale_x_discrete(labels = labels_plot3) +
+  scale_y_continuous(
+    breaks = seq(0,0.5, by = 0.1),
+    limits = c(0, 0.5),
+    minor_breaks = setdiff(
+      seq(0,0.5, by = 0.025),
+      seq(0,0.5,by = 0.1)),
+    guide = guide_axis(minor.ticks = TRUE)
+
+  ) +
   theme_minimal() +
   theme(
     legend.position = "none",
@@ -160,7 +175,9 @@ plot3 <- ggplot(
     axis.text.x = element_text(size = 8, colour = "black", angle = 45, hjust = 1),
     axis.ticks.length = unit(0.1, "cm"),
     axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
-    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15))
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   ) +
   scale_fill_manual(values = c("#3b7fc1ff", "#9A0B0B"), labels = c("turnover", "nestedness"))
 ```
@@ -183,8 +200,23 @@ Close-up of the Pleistocene-Holocene in real-time (Fig. 2c)
 plot4 <- ggplot(filter(paleotrees_summary, paleotrees_summary$max_ma <= 2.45), aes(y = value, x = min_ma, xend = max_ma, yend = value, color = higher)) +
   geom_segment(size = 1, alpha = 0.6) +
   geom_line(aes(x = mid_point, y = value, group = higher), size = 0.5) +
-  scale_x_reverse(breaks = c(0, 2.6), limits = c(2.6, 0), labels = c("0", "2.6")) +
-  scale_y_continuous(limits = c(0, 50), breaks = c(0, 25, 50)) +
+  scale_x_reverse(
+    breaks = c(0, 1, 2, 2.6),
+    limits = c(2.6, 0),
+    labels = c(0,1,2,2.6),
+    minor_breaks = setdiff(
+      round(seq(0, 2.6, by = 0.1), 1),
+      c(0, 1, 2, 2.6)
+    ),
+    guide = guide_axis(minor.ticks = TRUE))+
+  scale_y_continuous(
+    limits = c(0, 50), 
+    breaks = c(0, 25, 50),
+    minor_breaks = setdiff(
+      round(seq(0,50, by = 5)),
+      c(0,25,50)),
+    guide = guide_axis(minor.ticks = TRUE)
+    ) +
   theme_minimal() +
   theme(
     legend.position = "none",
@@ -199,9 +231,14 @@ plot4 <- ggplot(filter(paleotrees_summary, paleotrees_summary$max_ma <= 2.45), a
     axis.text.x = element_text(size = 8, colour = "black"),
     axis.ticks.length = unit(0.1, "cm"),
     axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
-    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15))
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75),
+    axis.minor.ticks.x.bottom = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.x = rel(0.75)
   ) +
   scale_color_manual(values = c("#DAA84C", "#427F62"), labels = c("Angiosperms", "Gymnosperms"))
+
 
 ggsave("Fig2_c.pdf", plot = plot4, path = here("figures"), bg = "white", height = 30, width = 60, units = "mm", device = "pdf")
 ```

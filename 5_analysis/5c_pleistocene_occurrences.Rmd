@@ -123,7 +123,14 @@ plot <- ggplot() +
   geom_point(data = table_data[table_data$NAM == 1, ], aes(y = genus, x = 2.9), color = "black") +
   geom_point(data = table_data[table_data$EUR == 1, ], aes(y = genus, x = 2.8), color = "black") +
   geom_point(data = table_data[table_data$ATP == 1, ], aes(y = genus, x = 2.7), color = "black") +
-  scale_x_reverse(breaks = c(2.6, 2, 1, 0)) +
+    scale_x_reverse(
+    breaks = c(2.6, 2, 1, 0),
+    labels = c(2.6, 2, 1, 0),
+    minor_breaks = setdiff(
+      round(seq(0, 2.6, by = 0.1), 1),
+      c(0, 1, 2, 2.6)
+    ),
+    guide = guide_axis(minor.ticks = TRUE))+
   geom_text(
     data = table_data,
     aes(x = 3, y = genus, label = label),
@@ -147,7 +154,9 @@ plot <- ggplot() +
     axis.title.y = element_blank(),
     axis.ticks.length = unit(0.1, "cm"),
     axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
-    axis.ticks.y = element_blank()
+    axis.ticks.y = element_blank(),
+    axis.minor.ticks.x.bottom = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.x = rel(0.75)
   )
 
 

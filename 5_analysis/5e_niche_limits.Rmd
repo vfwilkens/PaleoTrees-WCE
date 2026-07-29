@@ -230,11 +230,15 @@ d1 <- ggplot(combined_data, aes(x = bio5, fill = group)) +
     breaks = c("current", "ssp126", "ssp585")
   ) +
   scale_y_continuous(
-    limits = c(0, 250000),
-    breaks = c(0, 100000, 200000),
-    labels = c("0", "100", "200"),
-    position = "right"
-  ) +
+    position = "right",
+    limits = c(0, 250000), 
+    breaks = c(0, 50000, 100000, 150000, 200000, 250000),
+    labels = c("0", "50","100","150", "200", "250"),
+    minor_breaks = setdiff(
+      seq(0,250000, by = 10000),
+      c(0, 50000, 100000, 150000, 200000, 250000)),
+    guide = guide_axis(minor.ticks = TRUE)
+    ) +
   ylab(" ") +
   coord_cartesian(xlim = c(-20, 50)) +
   theme_minimal() +
@@ -244,14 +248,16 @@ d1 <- ggplot(combined_data, aes(x = bio5, fill = group)) +
     axis.text.x = element_blank(),
     axis.ticks.x = element_blank(),
     axis.line.x = element_blank(),
-    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.y = element_text(size = 8, colour = "black", hjust = 0),
     axis.ticks.length = unit(0.1, "cm"),
     axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
     axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
-    plot.margin = unit(c(0, 0, -0.25, 0), "cm")
+    plot.margin = unit(c(0, 0, -0.25, 0), "cm"),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 
 d2 <- ggplot(combined_data, aes(x = bio6, fill = group)) +
@@ -271,10 +277,14 @@ d2 <- ggplot(combined_data, aes(x = bio6, fill = group)) +
   ) +
   ylab(" ") +
   scale_y_reverse(
-    limits = c(250000, 0),
-    breaks = c(0, 100000, 200000),
-    labels = c("0", "100", "200")
-  ) +
+    limits = c(0, 200000), 
+    breaks = c(0, 50000, 100000, 150000, 200000),
+    labels = c("0", "50","100","150", "200"),
+    minor_breaks = setdiff(
+      seq(0,200000, by = 10000),
+      c(0, 50000, 100000, 150000, 200000)),
+    guide = guide_axis(minor.ticks = TRUE)
+    ) +
   scale_x_continuous(position = "top") +
   coord_cartesian(xlim = c(-20, 50)) +
   theme_minimal() +
@@ -291,7 +301,9 @@ d2 <- ggplot(combined_data, aes(x = bio6, fill = group)) +
     panel.background = element_blank(),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
-    plot.margin = unit(c(0, 0, -0.25, 0), "cm")
+    plot.margin = unit(c(0, 0, -0.25, 0), "cm"),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 ```
 
@@ -353,11 +365,18 @@ p1_short <- ggplot() +
     height = 0.9,
     alpha = 1
   ) +
-  scale_x_continuous(
-    limits = c(-20, 50),
-    breaks = c(-20, -10, 0, 10, 20, 30, 40),
-    sec.axis = dup_axis()
-  ) +
+scale_x_continuous(
+  breaks = c(-20, -10, 0, 10, 20, 30, 40),
+  limits = c(-20, 50),
+  minor_breaks = setdiff(
+    seq(-20, 49, by = 1),
+    c(-20, -10, 0, 10, 20, 30, 40)
+  ),
+  guide = guide_axis(minor.ticks = TRUE)
+) +
+guides(
+  x.sec = guide_axis(minor.ticks = TRUE)
+) +
   scale_fill_manual(
     values = c(
       "EG" = "#FFD579",
@@ -384,7 +403,10 @@ p1_short <- ggplot() +
     axis.text.x = element_text(size = 8, colour = "black"),
     axis.title.y = element_blank(),
     axis.ticks.length = unit(0.1, "cm"),
-    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15))
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.x.bottom = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.x = rel(0.75),
+    axis.minor.ticks.x.top = element_line(colour = "black", linewidth = mm(0.15))
   )
 ```
 
@@ -447,11 +469,18 @@ p1_full <- ggplot() +
     height = 0.9,
     alpha = 1
   ) +
-  scale_x_continuous(
-    limits = c(-20, 50),
-    breaks = c(-20, -10, 0, 10, 20, 30, 40),
-    sec.axis = dup_axis()
-  ) +
+scale_x_continuous(
+  breaks = c(-20, -10, 0, 10, 20, 30, 40),
+  limits = c(-20, 50),
+  minor_breaks = setdiff(
+    seq(-20, 49, by = 1),
+    c(-20, -10, 0, 10, 20, 30, 40)
+  ),
+  guide = guide_axis(minor.ticks = TRUE)
+) +
+guides(
+  x.sec = guide_axis(minor.ticks = TRUE)
+) +
   scale_fill_manual(
     values = c(
       "EG" = "#FFD579",
@@ -559,9 +588,16 @@ p1_full_supp <- ggplot() +
     alpha = 1
   ) +
   scale_x_continuous(
-    limits = c(-20, 50),
     breaks = c(-20, -10, 0, 10, 20, 30, 40),
-    sec.axis = dup_axis()
+    limits = c(-20, 50),
+    minor_breaks = setdiff(
+      seq(-20, 49, by = 1),
+      c(-20, -10, 0, 10, 20, 30, 40)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
+  guides(
+    x.sec = guide_axis(minor.ticks = TRUE)
   ) +
   scale_fill_manual(
     values = c(
@@ -589,7 +625,10 @@ p1_full_supp <- ggplot() +
     axis.text.x = element_text(size = 8, colour = "black"),
     axis.title.y = element_blank(),
     axis.ticks.length = unit(0.1, "cm"),
-    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15))
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.x.bottom = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.x = rel(0.75),
+    axis.minor.ticks.x.top = element_line(colour = "black", linewidth = mm(0.15))
   )
 ```
 

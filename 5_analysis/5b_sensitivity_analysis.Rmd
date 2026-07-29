@@ -228,11 +228,23 @@ sensitivity_results_gymno_long$name <- factor(sensitivity_results_gymno_long$nam
 
 Create plots for Figs S1 - S3:
 ```{r, eval = FALSE}
+mm <- function(x) {
+  x / 0.75
+}
+
 richness1 <- ggplot(
   data = sensitivity_results_richness_long,
   aes(x = name, y = value, color = threshold, group = threshold)
 ) +
   geom_line(size = 2.5) +
+  scale_y_continuous(
+    breaks = c(0, 25, 50, 75, 100, 125, 150, 175),
+    minor_breaks = setdiff(
+      seq(0, 190, by = 5),
+      c(0, 25, 50, 75, 100, 125, 150, 175)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
   scale_color_gradient(low = "black", "high" = "lightgrey") +
   theme_minimal() +
   theme(
@@ -241,14 +253,16 @@ richness1 <- ggplot(
     panel.grid.major = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"),
-    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.line.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text.x = element_text(size = 12, colour = "black"),
-    axis.ticks.length = unit(0.5, "cm"),
-    axis.ticks.x = element_line(colour = "black"),
-    axis.ticks.y = element_line(colour = "black")
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 
 
@@ -257,6 +271,15 @@ richness2 <- ggplot(
   aes(x = name, y = value, color = threshold, group = threshold)
 ) +
   geom_line(size = 2.5) +
+  scale_y_continuous(
+    limits = c(0,160),
+    breaks = c(0, 25, 50, 75, 100, 125, 150),
+    minor_breaks = setdiff(
+      seq(0, 160, by = 5),
+      c(0, 25, 50, 75, 100, 125, 150)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
   scale_color_gradient(low = "#daa84cff", "high" = "lightgrey") +
   theme_minimal() +
   theme(
@@ -265,21 +288,34 @@ richness2 <- ggplot(
     panel.grid.major = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"),
-    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.line.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text.x = element_text(size = 12, colour = "black"),
-    axis.ticks.length = unit(0.5, "cm"),
-    axis.ticks.x = element_line(colour = "black"),
-    axis.ticks.y = element_line(colour = "black")
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
+
+  
 
 richness3 <- ggplot(
   data = sensitivity_results_gymno_long,
   aes(x = name, y = value, color = threshold, group = threshold)
 ) +
   geom_line(size = 2.5) +
+  scale_y_continuous(
+    limits = c(0,30),
+    breaks = c(0, 10, 20,30),
+    minor_breaks = setdiff(
+      seq(0, 30, by = 1),
+      c(0, 10, 20, 30)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
   scale_color_gradient(low = "#427f62ff", "high" = "lightgrey") +
   theme_minimal() +
   theme(
@@ -288,14 +324,16 @@ richness3 <- ggplot(
     panel.grid.major = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"),
-    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.line.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text.x = element_text(size = 12, colour = "black"),
-    axis.ticks.length = unit(0.5, "cm"),
-    axis.ticks.x = element_line(colour = "black"),
-    axis.ticks.y = element_line(colour = "black")
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 
 ggsave("FigS1_sensitivity_richness.pdf", plot = richness1, path = here("figures"), bg = "white", height = 3, width = 6, device = "pdf")
@@ -310,6 +348,15 @@ beta1 <- ggplot(
   aes(x = names, y = value, color = threshold, group = threshold)
 ) +
   geom_line(size = 2.5) +
+  scale_y_continuous(
+    limits = c(0,1),
+    breaks = seq(0,1,by = 0.1),
+    minor_breaks = setdiff(
+      seq(0, 1, by = 0.025),
+      seq(0, 1,by = 0.1)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
   scale_color_gradient(low = "black", "high" = "lightgrey") +
   theme_minimal() +
   theme(
@@ -318,14 +365,16 @@ beta1 <- ggplot(
     panel.grid.major = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"),
-    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.line.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text.x = element_text(size = 12, colour = "black"),
-    axis.ticks.length = unit(0.5, "cm"),
-    axis.ticks.x = element_line(colour = "black"),
-    axis.ticks.y = element_line(colour = "black")
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 
 
@@ -334,6 +383,15 @@ beta2 <- ggplot(
   aes(x = names, y = value, color = threshold, group = threshold)
 ) +
   geom_line(size = 2.5) +
+  scale_y_continuous(
+    limits = c(0,1),
+    breaks = seq(0,1,by = 0.1),
+    minor_breaks = setdiff(
+      seq(0, 1, by = 0.025),
+      seq(0, 1,by = 0.1)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
   scale_color_gradient(low = "#9a0b0bff", "high" = "lightgrey") +
   theme_minimal() +
   theme(
@@ -342,14 +400,16 @@ beta2 <- ggplot(
     panel.grid.major = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"),
-    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.line.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text.x = element_text(size = 12, colour = "black"),
-    axis.ticks.length = unit(0.5, "cm"),
-    axis.ticks.x = element_line(colour = "black"),
-    axis.ticks.y = element_line(colour = "black")
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 
 
@@ -358,6 +418,15 @@ beta3 <- ggplot(
   aes(x = names, y = value, color = threshold, group = threshold)
 ) +
   geom_line(size = 2.5) +
+  scale_y_continuous(
+    limits = c(0,1),
+    breaks = seq(0,1,by = 0.1),
+    minor_breaks = setdiff(
+      seq(0, 1, by = 0.025),
+      seq(0, 1,by = 0.1)
+    ),
+    guide = guide_axis(minor.ticks = TRUE)
+  ) +
   scale_color_gradient(low = "#3b7fc1ff", "high" = "lightgrey") +
   theme_minimal() +
   theme(
@@ -366,14 +435,16 @@ beta3 <- ggplot(
     panel.grid.major = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.minor = element_blank(),
-    axis.line.x = element_line(colour = "black"),
-    axis.line.y = element_line(colour = "black"),
-    axis.text.y = element_text(size = 12, colour = "black"),
+    axis.line.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.line.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.text.y = element_text(size = 8, colour = "black"),
+    axis.text.x = element_blank(),
     axis.title.y = element_blank(),
-    axis.text.x = element_text(size = 12, colour = "black"),
-    axis.ticks.length = unit(0.5, "cm"),
-    axis.ticks.x = element_line(colour = "black"),
-    axis.ticks.y = element_line(colour = "black")
+    axis.ticks.length = unit(0.1, "cm"),
+    axis.ticks.x = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.ticks.y = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.y.left = element_line(colour = "black", linewidth = mm(0.15)),
+    axis.minor.ticks.length.y = rel(0.75)
   )
 ggsave("FigS4_sensitivity_total.pdf", plot = beta1, path = here("figures"), bg = "white", height = 3, width = 6, device = "pdf")
 ggsave("FigS5_sensitivity_nestedness.pdf", plot = beta2, path = here("figures"), bg = "white", height = 3, width = 6, device = "pdf")
